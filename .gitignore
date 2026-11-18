@@ -26,6 +26,10 @@ lockers_respaldo_*.json
 playwright-report/
 test-results/
 screenshots/
+tests/results/
+
+# Estado local de la aplicación (throttle de login)
+runtime/
 
 # IDE (conservar las tareas compartidas de VS Code)
 .vscode/*

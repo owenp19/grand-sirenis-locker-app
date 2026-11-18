@@ -1,19 +1,17 @@
 {
   "name": "grand-sirenis-loker-app",
   "version": "1.0.0",
-  "description": "**Proyecto completo:** PHP 8.1+, MySQL 8 / MariaDB 10.4+, JavaScript, CSS y PWA, sin Laravel ni frameworks pesados. Incluye un **dashboard responsive con gráficos**, 156 lockers originales, gestión de estados y movimientos; ahora con **pantallas de inicio de sesión y registro** integradas.",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "private": true,
+  "description": "Aplicación local para la gestión de lockers de colaboradores del hotel.",
   "type": "commonjs",
+  "scripts": {
+    "test:static": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -SkipPlaywright",
+    "test:e2e": "playwright test --config=tests/playwright.config.js",
+    "test:e2e:isolated": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-e2e.ps1"
+  },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "playwright": "^1.65.1"
-  }
+  },
+  "license": "UNLICENSED"
 }

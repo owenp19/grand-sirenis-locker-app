@@ -12,11 +12,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_valid((string) ($_POST['csrf'] ?? ''))) {
         $error = 'El formulario venció. Actualiza la página e inténtalo otra vez.';
     } else {
-        $attempts = (int) ($_SESSION['login_attempts'] ?? 0);
-        $start = (int) ($_SESSION['first_attempt'] ?? time());
-        if (time() - $start >= 900) { $attempts = 0; $start = time(); }
-        if ($attempts >= 8) {
-            $error = 'Se alcanzó el límite de intentos de esta sesión. Inténtalo en unos minutos.';
+        $wait = login_throttle_wait($username);
+        if ($wait > 0) {
+            $error = 'Demasiados intentos fallidos. Inténtalo de nuevo en ' . max(1, (int) ceil($wait / 60)) . ' minuto(s).';
         } elseif ($username === '' || $password === '' || strlen($username) > 60 || strlen($password) > 512) {
             $error = 'Introduce un usuario y una contraseña válidos.';
         } else {
@@ -24,8 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $q = db()->prepare('SELECT id, username, display_name, password_hash, role FROM users WHERE username = ? LIMIT 1');
                 $q->execute([$username]);
                 $account = $q->fetch();
-                if ($account && password_verify($password, (string) $account['password_hash'])) {
+                // Hash ficticio para igualar el tiempo de respuesta cuando el usuario no existe.
+                $dummyHash = '$2y$10$jBwtvLLlmuFDOc3dhP0uNOwo64o6Dca6JuLol7B/xH.gVt06G74PK';
+                $valid = password_verify($password, $account ? (string) $account['password_hash'] : $dummyHash);
+                if ($account && $valid) {
                     session_regenerate_id(true);
+                    unset($_SESSION['csrf']);
                     $_SESSION['user'] = [
                         'id' => (int) $account['id'],
                         'username' => (string) $account['username'],
@@ -33,12 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'role' => (string) $account['role'],
                     ];
                     $_SESSION['last_seen'] = time();
-                    unset($_SESSION['login_attempts'], $_SESSION['first_attempt']);
+                    login_throttle_clear($username);
                     db()->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?')->execute([(int) $account['id']]);
                     header('Location: index.php'); exit;
                 }
-                $_SESSION['login_attempts'] = $attempts + 1;
-                $_SESSION['first_attempt'] = $start;
+                login_throttle_fail($username);
                 $error = 'Usuario o contraseña incorrectos.';
             } catch (Throwable $e) {
                 error_log('LockerFlow login: ' . $e->getMessage());

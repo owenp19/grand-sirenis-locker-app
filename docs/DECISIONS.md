@@ -14,3 +14,8 @@
 | 2026-11-17 | Usuario de aplicación `lockerflow_app` con privilegios mínimos | Principio de menor privilegio; `root` queda solo para administración manual. |
 | 2026-11-17 | Migración `002_schema_hardening.sql` idempotente con `ADD INDEX IF NOT EXISTS` | Permite aplicarla con seguridad sobre bases existentes sin recrear tablas. |
 | 2026-11-17 | `db/seed.sql` se considera baseline/demo | No son datos reales de colaboradores; no se presentan como producción. |
+| 2026-11-17 | Sesiones PHP en lugar de JWT/API keys | Frontend y backend son del mismo origen; la sesión con cookie `HttpOnly`/`SameSite` reduce superficie y complejidad. |
+| 2026-11-17 | Rate limit de login en archivo local con `flock` | No añade tablas ni dependencias; sobrevive a la limpieza de cookies y se limpia solo. |
+| 2026-11-17 | Playwright usa Chrome/Edge del sistema | Evita la descarga de Chromium bloqueada por red y prueba el mismo motor que el usuario. |
+| 2026-11-17 | E2E contra `hotel_lockers_test` recreada desde dump | Aísla datos sintéticos, permite repetir la suite y no altera la base de desarrollo. |
+| 2026-11-17 | No implementar endpoints de usuarios no usados por la UI | KISS/YAGNI: solo alta de usuarios; listar/editar/eliminar no tiene flujo actual. |

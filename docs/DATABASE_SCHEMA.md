@@ -77,6 +77,13 @@ Clave foránea: `fk_movements_user` (`actor_id` → `users(id)`).
 ## Datos reales vs. demostración
 - `db/seed.sql` es el **baseline/demo** (156 lockers con estados de ejemplo). No son datos reales de colaboradores.
 - La base local actual contiene 156 lockers del seed, 0 usuarios y 0 movimientos: es un entorno de desarrollo.
+- `hotel_lockers_test` es una copia aislada para pruebas E2E; contiene un administrador y un operador sintéticos.
+
+## Pruebas y respaldo
+- Base de pruebas: `scripts/setup-test-db.ps1` recrea `hotel_lockers_test` desde `hotel_lockers` y concede privilegios mínimos al usuario de aplicación.
+- Suite E2E: `scripts/run-e2e.ps1` (base aislada + PHP en puerto 8001 + Playwright).
+- Respaldo: `scripts/backup-database.ps1` (usa `lockerflow_app`, `MYSQL_PWD`, `--single-transaction`; salida en `storage/backups/`).
+- Restauración verificada en `hotel_lockers_restore`: 156 lockers / 0 usuarios / 0 movimientos.
 
 ## Instalación
 - Nueva: importar `db/schema.sql`, luego `db/seed.sql` (una sola vez).

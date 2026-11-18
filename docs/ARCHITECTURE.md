@@ -9,15 +9,15 @@ Aplicación web ligera de tres capas sin frameworks: presentación, lógica de n
 - Las vistas PHP contienen HTML con inserción mínima de datos ya preparados (helpers `h()` para escape).
 
 ## Capa de lógica de negocio
-- `private/bootstrap.php`: inicialización (zona horaria, sesión segura, constantes de seguridad), conexión PDO singleton (`db()`), helpers de autenticación (`current_user`, `require_login`), CSRF (`csrf_token`, `csrf_valid`), validación de campos (`field`, `valid_date`), respuestas JSON (`respond`, `fail`), escape HTML (`h`).
+- `private/bootstrap.php`: inicialización (zona horaria, sesión segura, cabeceras), conexión PDO singleton (`db()`), helpers de autenticación (`current_user`, `require_login`), CSRF (`csrf_token`, `csrf_valid`), validación de campos (`field`, `valid_date`), respuestas JSON (`respond`, `fail`), escape HTML (`h`) y limitación de intentos de login (`login_throttle_*`, archivo local con `flock`).
 - `public/api.php`: función `do_action()` que ejecuta las acciones `assign`, `release`, `transfer`, `status`, `edit`, `reconcile` dentro de transacciones con bloqueo `FOR UPDATE`; funciones de lectura `rows_lockers()`, `rows_movements()`, `get_lock()`; exportaciones CSV/JSON (`csv_output`).
-- `public/login.php`, `public/register.php`, `public/logout.php`: control de autenticación con validación CSRF, `password_verify`, `password_hash`, bloqueo de intentos, `session_regenerate_id(true)`.
+- `public/login.php`, `public/register.php`, `public/logout.php`: autenticación con CSRF, `password_verify`/`password_hash`, rate limit por usuario+IP, rotación de ID/token y destrucción de sesión al salir.
 
 ## Capa de datos (`db/`)
 - Base de datos: `hotel_lockers` (utf8mb4, InnoDB).
 - Tablas: `users`, `lockers`, `movements`.
 - Esquema detallado: ver `docs/DATABASE_SCHEMA.md`.
-- Instalación nueva: `db/schema.sql` + `db/seed.sql` (una sola vez). Actualización: `db/migrations/001_roles_usuarios.sql` (una sola vez).
+- Instalación nueva: `db/schema.sql` + `db/seed.sql` (una sola vez). Actualización: migraciones de `db/migrations/` en orden; `002_schema_hardening.sql` es idempotente.
 
 ## Flujo de petición
 1. Navegador solicita una URL bajo `public/`.
@@ -33,6 +33,16 @@ Aplicación web ligera de tres capas sin frameworks: presentación, lógica de n
 ## Protección de archivos internos
 - `php -S -t public` solo sirve `public/`; `private/` y `db/` no son accesibles por HTTP con este servidor.
 - `.htaccess` deniega descarga de `.sql`, `.md`, `.ini`, `.env`, `.bak`, `.zip` (solo aplica con Apache).
+- `private/runtime/` guarda el estado del rate limit (ignorado por Git, no servido por HTTP).
+
+## Cabeceras de seguridad
+- CSP con `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`; `style-src` permite estilos inline actuales.
+- `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cache-Control: no-store`; HSTS solo sobre HTTPS.
+
+## Pruebas
+- Suite E2E en `tests/e2e/` con Playwright sobre Chrome/Edge del sistema.
+- Ejecución aislada: `scripts/run-e2e.ps1` (base `hotel_lockers_test`, puerto 8001, limpieza garantizada).
+- Validación estática: `scripts/run-tests.ps1` (`php -l`, `node --check`).
 
 ## Decisiones de diseño ya tomadas (ver `docs/DECISIONS.md`)
 - No usar frameworks pesados.

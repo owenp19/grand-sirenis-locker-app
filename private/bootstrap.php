@@ -5,8 +5,11 @@ $cfg = require __DIR__ . '/config.php';
 date_default_timezone_set($cfg['time_zone'] ?? 'America/Bogota');
 ini_set('display_errors', '0');
 ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+ini_set('session.use_trans_sid', '0');
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.gc_maxlifetime', '14400');
 
 $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 session_name('LOCKERS_HOTEL_SESSION');
@@ -21,7 +24,9 @@ session_start();
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
 header('Cache-Control: private, no-store');
+if (!empty($isHttps)) header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
 
 function config(): array { return $GLOBALS['cfg']; }
@@ -84,4 +89,81 @@ function valid_date(string $s, bool $required = false): ?string {
 function safe_user_agent(): bool {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '';
     return $ip === '127.0.0.1' || $ip === '::1';
+}
+
+/**
+ * Limitador de intentos de acceso del lado servidor (archivo con bloqueo).
+ * No depende de la sesión: limpiar cookies no reinicia el contador.
+ * Si el almacenamiento no está disponible, no bloquea el acceso (fail-open).
+ */
+function throttle_mutate(callable $fn): mixed {
+    $dir = __DIR__ . '/runtime';
+    if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) return null;
+    $handle = @fopen($dir . '/login-throttle.json', 'c+');
+    if ($handle === false) return null;
+    try {
+        if (!flock($handle, LOCK_EX)) return null;
+        $raw = stream_get_contents($handle);
+        $data = json_decode((string) $raw, true);
+        if (!is_array($data)) $data = [];
+        $now = time();
+        foreach ($data as $key => $entry) {
+            if (!is_array($entry) || ($now - (int) ($entry['t'] ?? 0)) > 86400) unset($data[$key]);
+        }
+        $result = $fn($data, $now);
+        ftruncate($handle, 0);
+        rewind($handle);
+        fwrite($handle, (string) json_encode($data));
+        fflush($handle);
+        return $result[1] ?? null;
+    } finally {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+    }
+}
+function login_throttle_keys(string $username): array {
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    return [
+        'user' => hash('sha256', 'u|' . strtolower(trim($username)) . '|' . $ip),
+        'ip' => hash('sha256', 'i|' . $ip),
+    ];
+}
+/** Segundos de espera restantes; 0 si puede intentar. */
+function login_throttle_wait(string $username): int {
+    $keys = login_throttle_keys($username);
+    $limits = ['user' => 8, 'ip' => 40];
+    $wait = throttle_mutate(static function (array &$data, int $now) use ($keys, $limits): array {
+        $max = 0;
+        foreach ($keys as $kind => $key) {
+            $entry = $data[$key] ?? null;
+            if (!is_array($entry)) continue;
+            $start = (int) ($entry['t'] ?? 0);
+            if (($now - $start) < 900 && (int) ($entry['c'] ?? 0) >= $limits[$kind]) {
+                $max = max($max, 900 - ($now - $start));
+            }
+        }
+        return [$data, $max];
+    });
+    return max(0, (int) $wait);
+}
+function login_throttle_fail(string $username): void {
+    $keys = login_throttle_keys($username);
+    throttle_mutate(static function (array &$data, int $now) use ($keys): array {
+        foreach ($keys as $key) {
+            $entry = $data[$key] ?? null;
+            if (!is_array($entry) || ($now - (int) ($entry['t'] ?? 0)) >= 900) {
+                $data[$key] = ['c' => 1, 't' => $now];
+            } else {
+                $data[$key] = ['c' => (int) $entry['c'] + 1, 't' => (int) $entry['t']];
+            }
+        }
+        return [$data, null];
+    });
+}
+function login_throttle_clear(string $username): void {
+    $target = login_throttle_keys($username)['user'];
+    throttle_mutate(static function (array &$data, int $now) use ($target): array {
+        unset($data[$target]);
+        return [$data, null];
+    });
 }

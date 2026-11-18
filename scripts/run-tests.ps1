@@ -1,22 +1,30 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SINOPSIS
-    Ejecuta las pruebas de sintaxis PHP y, si esta disponible, las pruebas Playwright.
+    Ejecuta validaciones de calidad y, opcionalmente, las pruebas E2E.
 
 .DESCRIPCIÓN
-    Script para validar codigo y ejecutar pruebas funcionales en Windows.
+    - php -l sobre todos los archivos PHP del proyecto.
+    - node --check sobre el JavaScript propio.
+    - Con -E2E: base aislada + servidor PHP + Playwright (run-e2e.ps1).
     No ejecuta pruebas destructivas ni sobre datos reales.
 #>
 [CmdletBinding()]
 param(
     [switch]$SkipPhp,
     [switch]$SkipPlaywright,
+    [switch]$E2E,
     [string]$Browser = 'chromium'
 )
 
 $ErrorActionPreference = 'Continue'
-$root = (Get-Item .).FullName
+$root = Split-Path -Parent $PSScriptRoot
 $failed = $false
+
+$php = Get-Command php -ErrorAction SilentlyContinue
+if ($php) { $phpPath = $php.Source }
+elseif (Test-Path 'C:\xampp\php\php.exe') { $phpPath = 'C:\xampp\php\php.exe' }
+else { $phpPath = $null }
 
 Write-Host "=== Ejecucion de pruebas: Grand Sirenis Locker App ===" -ForegroundColor Cyan
 Write-Host "Fecha: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
@@ -25,47 +33,55 @@ Write-Host ""
 # --- PHP syntax ---
 if (-not $SkipPhp) {
     Write-Host "--- Sintaxis PHP (php -l) ---" -ForegroundColor Yellow
-    $phpFiles = Get-ChildItem -Recurse -Filter *.php -Path $root | Where-Object {
-        $_.FullName -notlike '*node_modules*'
-    }
-    $phpOk = 0; $phpFail = 0
-    foreach ($f in $phpFiles) {
-        $result = & php -l $f.FullName 2>&1
-        if ($result -match 'No syntax errors') {
-            $phpOk++
-        } else {
-            $phpFail++
-            $failed = $true
-            Write-Host "  FALLO: $($f.Name)" -ForegroundColor Red
-            Write-Host "    $result" -ForegroundColor Red
+    if (-not $phpPath) {
+        Write-Host "PHP no disponible. Saltando validacion." -ForegroundColor Red
+        $failed = $true
+    } else {
+        $phpFiles = Get-ChildItem -Recurse -Filter *.php -Path $root | Where-Object {
+            $_.FullName -notlike '*node_modules*' -and $_.FullName -notlike '*tests\results*'
         }
+        $phpOk = 0; $phpFail = 0
+        foreach ($f in $phpFiles) {
+            $result = & $phpPath -l $f.FullName 2>&1
+            if ($result -match 'No syntax errors') {
+                $phpOk++
+            } else {
+                $phpFail++
+                $failed = $true
+                Write-Host "  FALLO: $($f.Name)" -ForegroundColor Red
+                Write-Host "    $result" -ForegroundColor Red
+            }
+        }
+        Write-Host "PHP: $phpOk exitosos, $phpFail fallidos" -ForegroundColor Gray
+        Write-Host ""
     }
-    Write-Host "PHP: $phpOk exitosos, $phpFail fallidos" -ForegroundColor Gray
-    Write-Host ""
 }
+
+# --- JavaScript syntax ---
+Write-Host "--- Sintaxis JavaScript (node --check) ---" -ForegroundColor Yellow
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeCmd) {
+    Write-Host "Node.js no disponible. Saltando validacion JS." -ForegroundColor Yellow
+} else {
+    $jsFiles = Get-ChildItem -Path (Join-Path $root 'public\assets\js') -Filter *.js -ErrorAction SilentlyContinue
+    $jsOk = 0; $jsFail = 0
+    foreach ($f in $jsFiles) {
+        & node --check $f.FullName 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { $jsOk++ }
+        else { $jsFail++; $failed = $true; Write-Host "  FALLO: $($f.Name)" -ForegroundColor Red }
+    }
+    Write-Host "JS: $jsOk exitosos, $jsFail fallidos" -ForegroundColor Gray
+}
+Write-Host ""
 
 # --- Playwright ---
 if (-not $SkipPlaywright) {
-    Write-Host "--- Pruebas Playwright ($Browser) ---" -ForegroundColor Yellow
-    $playwrightCmd = Get-Command npx -ErrorAction SilentlyContinue
-    if (-not $playwrightCmd) {
-        Write-Host "npx/Node no disponible. Saltando pruebas Playwright." -ForegroundColor Yellow
-        Write-Host "Estado: BLOQUEADO (falta Node.js/npm)" -ForegroundColor Yellow
+    if ($E2E) {
+        Write-Host "--- Playwright E2E (base aislada) ---" -ForegroundColor Yellow
+        & (Join-Path $PSScriptRoot 'run-e2e.ps1') -Browser $Browser
+        if ($LASTEXITCODE -ne 0) { $failed = $true }
     } else {
-        $configExists = Test-Path (Join-Path $root 'tests\playwright.config.js')
-        if (-not $configExists) {
-            Write-Host "No existe tests/playwright.config.js. Crea la configuracion antes de ejecutar pruebas." -ForegroundColor Yellow
-            Write-Host "Estado: PENDIENTE (falta configuracion de Playwright)" -ForegroundColor Yellow
-        } else {
-            Write-Host "Ejecutando: npx playwright test --browser=$Browser" -ForegroundColor Gray
-            & npx playwright test --browser=$Browser 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                $failed = $true
-                Write-Host "Playwright: PRUEBAS FALLIDAS" -ForegroundColor Red
-            } else {
-                Write-Host "Playwright: PRUEBAS EXITOSAS" -ForegroundColor Green
-            }
-        }
+        Write-Host "Playwright no ejecutado. Usa -E2E para base aislada hotel_lockers_test." -ForegroundColor Yellow
     }
     Write-Host ""
 }
@@ -73,9 +89,9 @@ if (-not $SkipPlaywright) {
 # --- Resumen ---
 Write-Host "=== RESUMEN ===" -ForegroundColor Cyan
 if ($failed) {
-    Write-Host "Resultado: ALGUNAS PRUEBAS FALLIDAS O BLOQUEADAS" -ForegroundColor Red
+    Write-Host "Resultado: HAY FALLOS" -ForegroundColor Red
     exit 1
 } else {
-    Write-Host "Resultado: TODAS LAS PRUEBAS DISPONIBLES EXITOSAS" -ForegroundColor Green
+    Write-Host "Resultado: VALIDACIONES DISPONIBLES EXITOSAS" -ForegroundColor Green
     exit 0
 }

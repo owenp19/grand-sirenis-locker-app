@@ -73,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $ready && $allowed) {
                 if ($initial) {
                     $newId = (int) $pdo->lastInsertId();
                     session_regenerate_id(true);
+                    unset($_SESSION['csrf']);
                     $_SESSION['user'] = ['id' => $newId, 'username' => $username, 'name' => $name, 'role' => 'administrador'];
                     $_SESSION['last_seen'] = time();
                     header('Location: index.php'); exit;

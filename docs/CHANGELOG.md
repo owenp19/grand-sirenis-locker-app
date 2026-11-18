@@ -1,5 +1,18 @@
 # Changelog — Grand Sirenis Locker App
 
+## 2026-11-17 — Fases 3 y 4 (integración y verificación integral)
+- **Sesión y cabeceras:** `session.use_only_cookies`, `use_trans_sid=0`, `gc_maxlifetime=14400`; `Permissions-Policy`; HSTS cuando hay HTTPS.
+- **Rate limit de login del lado servidor:** contador por usuario+IP y por IP en `private/runtime/login-throttle.json` (SHA-256 + `flock`), 8/15 min y 40/15 min; limpiar cookies no lo reinicia.
+- **Anti-enumeración:** `login.php` verifica siempre un hash real o ficticio.
+- **CSRF:** token rotado tras login y registro inicial; logout con POST + token y destrucción completa de sesión/cookie.
+- **Integración verificada:** dashboard, inventario, colaboradores, asignaciones, liberaciones, traslados, estados, movimientos e incidencias contra MariaDB.
+- **Playwright desbloqueado:** Chrome/Edge del sistema vía `launchOptions.executablePath`; corregidos `testDir`, `outputDir` y reporte.
+- **Suite E2E:** `tests/e2e/app.spec.js` (12 pruebas) + `auth.spec.js` (2) → **14/14 superadas** contra `hotel_lockers_test`.
+- **Automatización:** nuevos `scripts/setup-test-db.ps1` y `scripts/run-e2e.ps1`; corregidos `start-dev.ps1` (`$Host`), `check-environment.ps1`, `backup-database.ps1` y `run-tests.ps1`.
+- **Respaldo/restauración:** verificado con `lockerflow_app` en base aislada (156/0/0).
+- **Calidad:** `php -l` 8/8, `node --check` 2/2, sintaxis PowerShell OK, sin errores de página en Playwright.
+- **Sin cambios de UI/UX.**
+
 ## 2026-11-17 — Fase 1 (skills/seguridad) y Fase 2 (esquema/privilegios)
 - **Skills:** `AGENTS.md` ampliado con reglas permanentes de activación automática de skills, ahorro de tokens y carga progresiva de contexto (sección 11), y reglas de entorno autorizado/datos (sección 12). Creado `.agents/skills/token-context-optimizer/SKILL.md`.
 - **Seguridad:** `private/config.php` reescrito para leer `.env`/variables de entorno; sin credenciales en código. Creado `.env.example`; `.env` local no versionado. `.gitignore` corregido para versionar los `.sql` del proyecto y mantener fuera secretos.

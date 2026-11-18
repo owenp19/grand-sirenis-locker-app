@@ -1,47 +1,49 @@
 // tests/playwright.config.js
-// Configuracion de Playwright para Grand Sirenis Locker App.
-// Pruebas E2E sobre Chromium en el servidor local de desarrollo.
+// Configuración de Playwright para Grand Sirenis Locker App.
 //
-// NOTA: La descarga del Chromium oficial de Playwright (~207 MiB) no pudo
-// completarse por inestabilidad de red (ECONNRESET/timeout). Como alternativa,
-// se puede usar el Google Chrome ya instalado en el sistema mediante la
-// variable de entorno PLAYWRIGHT_CHROME_EXECUTABLE_PATH o el valor por defecto
-// de Windows. Si no hay navegador disponible, las pruebas quedan BLOQUEADAS
-// y se documentan como tales (no se inventan resultados).
+// Navegador: usa Chrome o Edge instalado en Windows (sin descargar nada).
+// Servidor: se inicia aparte. Para E2E aislado, usar scripts/run-e2e.ps1,
+// que apunta a la base de pruebas hotel_lockers_test en el puerto 8001.
 //
-// Las pruebas requieren:
-//   1. Servidor PHP activo: php -S 127.0.0.1:8000 -t public
-//   2. MySQL activo (XAMPP) y base de datos hotel_lockers creada
+// Variables:
+//   PLAYWRIGHT_BASE_URL                  (por defecto http://127.0.0.1:8000)
+//   PLAYWRIGHT_CHROME_EXECUTABLE_PATH    (ruta explícita a Chrome/Edge)
 
 const { defineConfig, devices } = require('@playwright/test');
+const fs = require('fs');
 
-const chromeExecutablePath =
-  process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH ||
-  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const candidates = [
+  process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+].filter(Boolean);
+const browserPath = candidates.find((file) => fs.existsSync(file));
 
 module.exports = defineConfig({
-  testDir: './tests/e2e',
-  fullyParallel: true,
+  // Relativo a este archivo: tests/e2e (no tests/tests/e2e).
+  testDir: './e2e',
+  outputDir: './results',
+  // El estado de la base de datos es compartido: ejecución secuencial.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  retries: 0,
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+  ],
 
-  // Entorno local de la app
   use: {
-    baseURL: 'http://127.0.0.1:8000',
-    trace: 'on-first-retry',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8000',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     headless: true,
     viewport: { width: 1280, height: 800 },
-    ignoreHTTPSErrors: true,
     actionTimeout: 10000,
     navigationTimeout: 30000,
-    // Usar Chrome del sistema si está disponible; si no, Playwright usará su
-    // propio Chromium (que no se pudo descargar por red).
-    executablePath: require('fs').existsSync(chromeExecutablePath)
-      ? chromeExecutablePath
-      : undefined,
+    launchOptions: browserPath ? { executablePath: browserPath } : {},
   },
 
   projects: [
@@ -51,9 +53,7 @@ module.exports = defineConfig({
     },
   ],
 
-  // El servidor PHP se inicia por separado (start-dev.ps1 / iniciar-servidor.bat).
-  // No se lanza webServer automaticamente para evitar procesos huérfanos.
+  // El servidor PHP se gestiona desde scripts/run-e2e.ps1 para poder
+  // seleccionar la base de pruebas y detenerlo siempre al terminar.
   webServer: undefined,
-
-  outputDir: './tests/results',
 });
