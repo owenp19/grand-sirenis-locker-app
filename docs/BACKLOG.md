@@ -1,27 +1,33 @@
 # Backlog de tareas técnicas — Grand Sirenis Locker App
 
-Lista priorizada de tareas pendientes. Basada en el diagnóstico real (`docs/DIAGNOSTICO.md`).
+Lista priorizada de tareas pendientes. Basada en el diagnóstico real (`docs/DIAGNOSTICO.md`) y en la sesión del 2026-11-17.
 
 ## Alta prioridad (inmediata)
-1. **Inicializar Git (`git init`)** — repositorio inexistente; `.gitignore` ya creado, excluye `private/config.php` real, respaldos y `storage/`.
-2. **Mover credenciales de MySQL a variables de entorno** — `private/config.php` tiene `root` / contraseña vacía en texto plano; no commitear valores reales.
-3. **Finalizar instalación de Playwright** — `npm install --save-dev playwright` ✅ completado; `npx playwright install chromium` ❌ BLOQUEADO (red inestable: ECONNRESET/timeout). `playwright.config.js` configurado para usar Chrome del sistema vía `executablePath` (si está disponible).
-4. **Ejecutar al menos una prueba E2E reproducible** — ❌ BLOQUEADA: no hay servidor PHP en `127.0.0.1:8000` ni MySQL/BD `hotel_lockers` activa; navegador de Playwright no descargado. No se ejecutaron pruebas; no se inventan resultados. Requiere iniciar PHP (`scripts/start-dev.ps1`) y MySQL (XAMPP) antes de probar.
-5. **Crear scripts de automatización Windows** — **HECHOS**: `scripts/start-dev.ps1`, `scripts/check-environment.ps1`, `scripts/run-tests.ps1`, `scripts/backup-database.ps1` (sin credenciales, sin Bash/WSL asumido).
-6. **Configurar verificación automática** — **HECHO parcialmente**: `php -l` sobre los 8 archivos PHP: 8/8 exitosos. Falta revisión de JS y comprobaciones de seguridad automatizadas.
+1. **✅ HECHO — Git y `.gitignore`:** repositorio existente (`master`), `.gitignore` corregido (secretos fuera, `.sql` del proyecto versionados).
+2. **✅ HECHO — Credenciales fuera del código:** `private/config.php` lee `.env`; `.env` no versionado; `.env.example` con placeholders.
+3. **✅ HECHO — Usuario de aplicación con privilegios mínimos:** `lockerflow_app` solo `SELECT/INSERT/UPDATE/DELETE` sobre `hotel_lockers`; la app no usa `root`.
+4. **❌ BLOQUEADO — Playwright Chromium:** `npx playwright install chromium` falla por red (`ECONNRESET`/timeout). `tests/playwright.config.js` usa Chrome del sistema.
+5. **❌ PENDIENTE — Ejecutar pruebas E2E:** requiere servidor PHP activo + MariaDB + navegador. No se ejecutaron ni se inventaron resultados. Además, validar registro/login exige autorización para crear la primera cuenta de administrador.
 
 ## Prioridad media
-7. **Ajustar `manifest.webmanifest` al nombre público "Grand Sirenis Locker App"** — actualmente dice "LockerFlow | Gestión Hotelera" (Fase 6, sin cambios visuales aún).
-8. **Proteger `private/`, `db/`, respaldos de descarga HTTP** — revisar `.htaccess` para Apache (ya bloquea extensiones sensibles) y comportamiento de `php -S`.
-9. **Verificación de JS y seguridad básica** — pendiente (sin dependencias adicionales; revisión manual o herramientas nativas).
+6. **Base de datos:** `✅ HECHO` esquema `db/schema.sql` con InnoDB/utf8mb4, FK, índices, `uk_block_locker`; migración `002` idempotente; base `hotel_lockers` creada con 156 lockers demo.
+7. **Documentar/validar backup-restore:** `scripts/backup-database.ps1` existe; falta probar restauración en un entorno de prueba (no sobre datos reales).
+8. **Ajustar `manifest.webmanifest` al nombre público "Grand Sirenis Locker App"** — actualmente dice "LockerFlow | Gestión Hotelera" (sin cambios visuales aún).
+9. **Verificación de JS y seguridad básica** — pendiente (revisión manual o herramientas nativas; sin dependencias nuevas).
 
-## Baja prioridad / futura (Fase 2 — UI/UX)
-10. **Revisión de UI/UX con el skill `ui-ux-desktop`** — solo después de instalar y configurar; sin rediseño aún; validar con Playwright.
-11. **Mejoras de accesibilidad y responsive** — según el skill `frontend-engineering`, sin duplicar CSS/JS.
+## Baja prioridad / futura (UI/UX)
+10. **Revisión de UI/UX con el skill `ui-ux-desktop`** — fase separada, aún no iniciada; sin rediseño.
+11. **Mejoras de accesibilidad y responsive** — según `frontend-engineering`, sin duplicar CSS/JS.
 
 ## Estado de cada tarea
-- Tareas 1-4: pendientes (Playwright en instalación background).
-- Tarea 5: **HECHA** (scripts creados).
-- Tarea 6: **HECHA parcialmente** (`php -l` aprobado; falta JS/seguridad).
-- Tareas 7-9: pendientes (Fase 4/6).
-- Tareas 10-11: bloqueadas hasta Fase 2 (no iniciar aún).
+- Tareas 1-3: **HECHAS**.
+- Tarea 4: **BLOQUEADA** por red.
+- Tarea 5: **PENDIENTE** (bloqueada por 4 y por autorización para crear admin).
+- Tarea 6: **HECHA** (esquema, migración y privilegios verificados).
+- Tarea 7: **PENDIENTE** (script listo, restauración no probada).
+- Tareas 8-9: pendientes.
+- Tareas 10-11: no iniciadas (UI/UX fuera de alcance de esta fase).
+
+## Riesgos pendientes
+- **`root` de MariaDB sin contraseña (XAMPP local):** la app ya no usa `root`, pero la cuenta administradora sigue sin clave. Definir una clave requiere autorización porque afecta las tareas administrativas y scripts locales; no se modificó en esta fase.
+- **Playwright sin navegador instalado:** pruebas E2E no verificadas; no se declaran como exitosas.

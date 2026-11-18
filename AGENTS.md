@@ -55,3 +55,19 @@ No almacenar contraseñas, tokens ni datos sensibles en estos documentos. El có
 - No ejecutar operaciones irreversibles (`DROP`, `DELETE` sin `WHERE`, `TRUNCATE`) sin aprobación expresa.
 - `db/seed.sql` solo en instalación nueva; `db/migrations/001_roles_usuarios.sql` solo una vez sobre base existente.
 - Antes de cualquier actualización, exportar respaldo SQL desde phpMyAdmin (`hotel_lockers → Exportar → SQL`).
+
+## 11. Activación inteligente de skills y optimización de contexto
+- Activar automáticamente los skills necesarios según la tarea (matriz en `.agents/skills/token-context-optimizer/SKILL.md`); no cargar skills irrelevantes.
+- Mantener siempre las reglas esenciales de seguridad, calidad y memoria (secciones 5, 6 y 9), aunque no se carguen skills adicionales.
+- Aplicar ahorro de tokens y carga progresiva de contexto en todas las sesiones: leer primero `AGENTS.md` y `docs/SESSION_STATE.md`, luego solo los archivos relevantes.
+- Leer únicamente archivos relevantes; evitar lecturas masivas o repetidas del mismo archivo.
+- Evitar herramientas, lecturas y operaciones repetidas; reutilizar resultados ya obtenidos en la sesión.
+- No reinstalar componentes existentes (skills, dependencias, esquema, base de datos) sin verificar antes su estado.
+- No generar código innecesario ni duplicar funciones, estilos o endpoints.
+
+## 12. Entorno autorizado y datos
+- Distinguir siempre datos reales de datos de demostración (`db/seed.sql` es el baseline original/demo).
+- No modificar credenciales de producción sin autorización.
+- Antes de migrar una base existente, crear respaldo (`scripts/backup-database.ps1`).
+- El usuario de aplicación de MySQL debe tener privilegios mínimos (SELECT/INSERT/UPDATE/DELETE sobre `hotel_lockers`); nunca usar `root` en la aplicación.
+- Los secretos viven en `.env` (no versionado) o variables de entorno; `.env.example` solo contiene placeholders.

@@ -37,7 +37,8 @@ Motor: InnoDB. Charset: utf8mb4. Collation: utf8mb4_unicode_ci.
 | `source_row` | INT UNSIGNED | SÍ | | Fila de origen en Excel |
 | `updated_at` | TIMESTAMP | NO | | DEFAULT CURRENT_TIMESTAMP ON UPDATE |
 
-Índices: `idx_status` (status), `idx_block` (block_no), `idx_person` (person_name).
+Índices: `idx_status` (status), `idx_block` (block_no), `idx_person` (person_name), `uk_block_locker` UNIQUE (block_no, locker_no).  
+`uk_block_locker` evita que existan dos lockers con el mismo bloque y número (defensa en profundidad ante errores de importación).
 
 ## Tabla `movements`
 | Campo | Tipo | Nulo | Clave | Comentario |
@@ -53,15 +54,31 @@ Motor: InnoDB. Charset: utf8mb4. Collation: utf8mb4_unicode_ci.
 | `snapshot_after` | JSON | SÍ | | Estado después (auditoría) |
 | `created_at` | DATETIME | NO | | DEFAULT CURRENT_TIMESTAMP |
 
-Índices: `idx_created` (created_at), `idx_locker` (locker_id).  
+Índices: `idx_created` (created_at), `idx_locker` (locker_id), `idx_movements_person` (person_name).  
 Clave foránea: `fk_movements_user` (`actor_id` → `users(id)`).
 
-## Notas de integridad
-- Las asignaciones de locker usan bloqueo `FOR UPDATE` en `api.php` para evitar asignaciones simultáneas incompatibles.
+## Concurrencia, transacciones y trazabilidad
+- Todas las operaciones que modifican lockers (`assign`, `release`, `transfer`, `status`, `edit`, `reconcile`) corren dentro de una transacción PDO (`beginTransaction` / `commit` / `rollBack`).
+- Cada locker implicado se lee con `SELECT ... FOR UPDATE` antes de modificarse, lo que serializa asignaciones simultáneas del mismo locker o del último locker disponible.
+- Cada movimiento guarda `snapshot_before` / `snapshot_after` (JSON) y el actor (`actor_id` → `users(id)`), formando una pista de auditoría inmutable desde la aplicación.
 - La primera cuenta de administrador usa `GET_LOCK('lockerflow_first_user', 8)` para evitar doble creación simultánea.
-- `seed.sql` usa `INSERT IGNORE` (no duplica si se reimporta).
-- La migración `001_roles_usuarios.sql` añade la columna `role` sin borrar datos existentes.
+
+## Migraciones
+| Archivo | Propósito | Idempotente |
+|---|---|---|
+| `db/migrations/001_roles_usuarios.sql` | Añade columna `role` a `users` existentes | No (falla si `role` ya existe) |
+| `db/migrations/002_schema_hardening.sql` | Añade `uk_block_locker` e `idx_movements_person` | Sí (`ADD INDEX IF NOT EXISTS`, MariaDB 10.4+) |
+
+## Usuario de aplicación y privilegios
+- La aplicación se conecta con `lockerflow_app` (hosts `localhost` y `127.0.0.1`), nunca con `root`.
+- Privilegios: `SELECT, INSERT, UPDATE, DELETE ON hotel_lockers.*` únicamente. Sin `CREATE`, `ALTER`, `DROP`, `GRANT` ni acceso a otras bases.
+- La contraseña vive solo en `.env` (no versionado). Las migraciones y tareas administrativas se ejecutan aparte con la cuenta administradora de XAMPP.
+
+## Datos reales vs. demostración
+- `db/seed.sql` es el **baseline/demo** (156 lockers con estados de ejemplo). No son datos reales de colaboradores.
+- La base local actual contiene 156 lockers del seed, 0 usuarios y 0 movimientos: es un entorno de desarrollo.
 
 ## Instalación
 - Nueva: importar `db/schema.sql`, luego `db/seed.sql` (una sola vez).
-- Actualización de base previa: importar `db/migrations/001_roles_usuarios.sql` una sola vez (no repetir si da "Duplicate column name 'role'").
+- Actualización de base previa: aplicar en orden las migraciones de `db/migrations/` que falten; `002` es idempotente y no borra datos.
+- Antes de migrar datos reales: `scripts/backup-database.ps1` (respaldo SQL previo).

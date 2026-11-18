@@ -1,19 +1,24 @@
 # .gitignore — Grand Sirenis Locker App
 # No commitear credenciales, dependencias ni respaldos.
+# El esquema del proyecto (db/**/*.sql) SÍ debe versionarse.
 
 # Credenciales y configuración local con secretos
-private/config.php
+# private/config.php NO contiene secretos (lee .env) y sí se versiona.
 .env
 .env.local
 *.env
+!.env.example
 
 # Dependencias Node
 node_modules/
-package-lock.json
 
-# Respaldo de base de datos y storage
+# Respaldos de base de datos y storage (no ignorar el esquema del proyecto)
 storage/
-*.sql
+/respaldos/
+backups/
+**/backups/
+hotel_lockers_*.sql
+lockers_respaldo_*.json
 *.bak
 *.zip
 
@@ -22,8 +27,9 @@ playwright-report/
 test-results/
 screenshots/
 
-# IDE
-.vscode/
+# IDE (conservar las tareas compartidas de VS Code)
+.vscode/*
+!.vscode/tasks.json
 .idea/
 *.code-workspace
 

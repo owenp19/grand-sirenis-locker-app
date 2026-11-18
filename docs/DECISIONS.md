@@ -9,3 +9,8 @@
 | 2026-11-17 | Skills ubicados en `.agents/skills/` | Ubicación preferida definida; cada skill con su `SKILL.md`. |
 | 2026-11-17 | Nombre público deseado: "Grand Sirenis Locker App" | Instrucción del proyecto; `manifest.webmanifest` aún dice "LockerFlow" (pendiente de ajuste en Fase 6). |
 | 2026-11-17 | No rediseñar UI/UX en esta primera ejecución | El skill `ui-ux-desktop` solo se instala y configura; la revisión visual es una fase independiente futura. |
+| 2026-11-17 | Credenciales fuera del código: `private/config.php` lee `.env`/variables de entorno | Evita secretos en Git y permite rotar la contraseña sin tocar código. `.env` no se versiona. |
+| 2026-11-17 | Versionar `db/**/*.sql` y `private/config.php` (sin secretos) | Reproducibilidad: el esquema, las migraciones y la configuración base deben estar en Git; solo `.env` queda fuera. |
+| 2026-11-17 | Usuario de aplicación `lockerflow_app` con privilegios mínimos | Principio de menor privilegio; `root` queda solo para administración manual. |
+| 2026-11-17 | Migración `002_schema_hardening.sql` idempotente con `ADD INDEX IF NOT EXISTS` | Permite aplicarla con seguridad sobre bases existentes sin recrear tablas. |
+| 2026-11-17 | `db/seed.sql` se considera baseline/demo | No son datos reales de colaboradores; no se presentan como producción. |

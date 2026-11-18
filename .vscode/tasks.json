@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "LockerFlow: iniciar PHP",
+      "type": "shell",
+      "command": "php",
+      "args": ["-S", "127.0.0.1:8000", "-t", "public"],
+      "windows": {
+        "command": "cmd",
+        "args": ["/c", "${workspaceFolder}\\iniciar-servidor.bat"]
+      },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "panel": "dedicated", "clear": true}
+    }
+  ]
+}

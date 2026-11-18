@@ -2,7 +2,8 @@
 
 **Fecha:** 17 de noviembre de 2026  
 **Auditoría:** Fase 1 — Inspección del repositorio (sin cambios funcionales)  
-**Estado:** Proyecto existente, operativo en entorno local, sin inicializar como repositorio Git
+**Estado:** Proyecto existente, operativo en entorno local, con repositorio Git inicializado.
+**Actualización Fase 1/2 (2026-11-17):** los riesgos S1 (credenciales en `config.php`) y S2 (exposición de `private/`) quedaron resueltos: configuración vía `.env`, `private/.htaccess` y `db/.htaccess` con `Require all denied`, y usuario de aplicación con privilegios mínimos. Este documento conserva la auditoría original como referencia histórica.
 
 ---
 

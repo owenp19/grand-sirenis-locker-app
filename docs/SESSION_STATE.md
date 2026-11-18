@@ -2,57 +2,59 @@
 
 ## Última sesión registrada
 **Fecha:** 17 de noviembre de 2026  
-**Etapa:** Configuración inicial (Fases 1-6 del plan de desarrollo).
+**Etapa:** Fase 1 (skills + seguridad crítica) y Fase 2 (esquema MariaDB + privilegios mínimos) completadas.
 
 ## ¿Qué se hizo en esta sesión?
-1. **Fase 1 — Auditoría del repositorio:** inspección completa de todos los archivos existentes, lectura del código PHP, SQL, JS, CSS, PWA, verificación de versiones (PHP 8.2.12, MariaDB 10.4.32, Node 26.13.0, Git 2.54.0), confirmación de que no hay repositorio Git inicializado.
-2. **Documento de diagnóstico:** creado `docs/DIAGNOSTICO.md`.
-3. **Fase 2 — Skills:** creados 9 skills en `.agents/skills/` con su `SKILL.md`: `ui-ux-desktop`, `frontend-engineering`, `php-backend`, `mysql-database`, `cybersecurity`, `playwright-testing`, `clean-code-performance`, `windows-automation`, `project-memory`.
-4. **Fase 3 — Estructura de carpetas:** evaluada y preservada; se añadieron `scripts/` y `tests/` con entregables concretos (no carpetas vacías).
-5. **Fase 4 — Memoria persistente:** creado `AGENTS.md` y los 8 documentos de `docs/`.
-6. **Fase 5 — Verificaciones automáticas:**
-   - `php -l` sobre los 8 archivos PHP: **8/8 exitosos**, sin errores de sintaxis.
-   - `package.json` creado (`npm init -y`).
-   - `npm install --save-dev playwright` lanzado en segundo plano (aún en progreso al cerrar la sesión).
-   - `tests/playwright.config.js`, `tests/e2e/auth.spec.js` (2 pruebas E2E), `tests/README.md` creados.
-   - Playwright no se pudo ejecutar aún: falta `npx playwright install chromium` y servidor PHP/MySQL activos.
-7. **Fase 6 — Windows y PWA:**
-   - Scripts PowerShell creados: `scripts/start-dev.ps1`, `scripts/check-environment.ps1`, `scripts/run-tests.ps1`, `scripts/backup-database.ps1`.
-   - `.gitignore` creado (excluye `private/config.php`, `node_modules/`, `storage/`, reportes de Playwright, etc.).
-   - PWA inspeccionado: `manifest.webmanifest`, `sw.js`, `offline.html`, íconos presentes (ver `docs/DIAGNOSTICO.md`). Nombre aún "LockerFlow" (pendiente ajuste a "Grand Sirenis Locker App").
+### Fase 1 — Skills y seguridad
+1. Revisados los 9 skills existentes en `.agents/skills/` (sin reinstalarlos).
+2. `AGENTS.md` ampliado con las secciones **11** (activación automática de skills, ahorro de tokens, carga progresiva de contexto) y **12** (entorno autorizado y datos).
+3. Creado el skill `token-context-optimizer` porque aporta matriz de activación, protocolo de presupuesto de contexto y anti-patrones que las reglas de `AGENTS.md` no detallaban.
+4. `private/config.php` reescrito: ya **no contiene credenciales**; lee `.env` o variables de entorno con un cargador sin dependencias y usa valores seguros por defecto (`lockerflow_app`, contraseña vacía).
+5. Creado `.env.example` (solo placeholders) y `.env` local (no versionado, con contraseña generada y nunca mostrada).
+6. `.gitignore` corregido: los `.sql` del proyecto (`db/schema.sql`, `db/seed.sql`, `db/migrations/*.sql`) ahora **sí se versionan**; `.env` sigue ignorado; `private/config.php` (sin secretos) se versiona.
+7. Verificado que `private/config.php` nunca estuvo commiteado (no hay secretos en el historial de Git).
+8. Confirmado que `private/.htaccess` y `db/.htaccess` contienen `Require all denied`.
 
-## Archivos creados en esta sesión
-- `docs/DIAGNOSTICO.md`
-- `.agents/skills/{9 skills}/SKILL.md`
-- `AGENTS.md`
-- `docs/PROJECT_CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/SESSION_STATE.md`, `docs/DECISIONS.md`, `docs/BACKLOG.md`, `docs/CHANGELOG.md`, `docs/DATABASE_SCHEMA.md`
+### Fase 2 — Base de datos
+1. Auditoría: dashboard, inventario, colaboradores, movimientos, incidencias, usuarios y operaciones. El frontend **no usa** `localStorage`, `sessionStorage`, `IndexedDB` ni archivos JSON: el estado vive solo en memoria (`S` en `public/assets/js/app.js`) y se persiste por `api.php`.
+2. `db/schema.sql` endurecido:
+   - `UNIQUE KEY uk_block_locker (block_no, locker_no)` — impide lockers duplicados por bloque+número.
+   - `INDEX idx_movements_person (person_name)` — acelera búsqueda de movimientos por colaborador.
+3. Creada la migración reproducible e idempotente `db/migrations/002_schema_hardening.sql` (`ADD INDEX IF NOT EXISTS`).
+4. Base `hotel_lockers` creada desde cero (no existía) con `db/schema.sql` + `db/seed.sql`: **156 lockers**, 0 usuarios, 0 movimientos. El seed se trata como **demo/baseline**, no como datos reales.
+5. Creado el usuario de aplicación `lockerflow_app` (`localhost` y `127.0.0.1`) con solo `SELECT, INSERT, UPDATE, DELETE ON hotel_lockers.*`. DDL denegado (`ERROR 1142`). `root` queda solo para tareas administrativas.
+
+## Archivos modificados / creados
+- `AGENTS.md` (secciones 11-12)
+- `.agents/skills/token-context-optimizer/SKILL.md`
+- `private/config.php` (reescrito, sin secretos)
+- `.env.example`, `.env` (local, no versionado)
 - `.gitignore`
-- `scripts/start-dev.ps1`, `scripts/check-environment.ps1`, `scripts/run-tests.ps1`, `scripts/backup-database.ps1`
-- `package.json`
-- `tests/playwright.config.js`, `tests/e2e/auth.spec.js`, `tests/README.md`
+- `db/schema.sql`, `db/migrations/002_schema_hardening.sql`, `db/seed.sql` (ahora versionable)
+- `docs/SESSION_STATE.md`, `docs/DATABASE_SCHEMA.md`, `docs/CHANGELOG.md`, `docs/BACKLOG.md`, `docs/DECISIONS.md`
 
-## Archivos modificados
-Ninguno (auditoría sin cambios funcionales).
+## Pruebas ejecutadas (resultados reales)
+| Prueba | Resultado |
+|---|---|
+| `php -l` en `private/config.php` | ✅ Sin errores |
+| Conexión PDO vía `private/bootstrap.php` con `lockerflow_app` | ✅ 156 lockers, zona `America/Bogota` |
+| Privilegios del usuario de app (`SHOW GRANTS`) | ✅ Solo `SELECT/INSERT/UPDATE/DELETE` sobre `hotel_lockers` |
+| Intento de `CREATE TABLE` con usuario de app | ✅ Denegado (`ERROR 1142`) |
+| Migración `002` ejecutada dos veces | ✅ Idempotente, sin errores |
+| Integridad FK `users` ↔ `movements` (transacción revertida) | ✅ Inserción aceptada y `ROLLBACK` sin persistir |
+| Unicidad `uk_block_locker` (inserción duplicada) | ✅ Rechazada (`ERROR 1062 Duplicate entry '1-1'`) |
+| Conteos finales | ✅ Users 0, movements 0, lockers 156 (sin cambios) |
+| Servidor `php -S 127.0.0.1:8010 -t public` | ✅ `GET /login.php` 200 con formulario; `GET /api.php` 401 sin sesión |
+| Archivos PHP sin BOM | ✅ `config.php`, `bootstrap.php`, `login.php` |
 
-## Tareas pendientes (ver `docs/BACKLOG.md`)
-1. **Inicializar Git** + `.gitignore` (ya creado, falta `git init`).
-2. **Mover credenciales de MySQL a variables de entorno** (en `private/config.php`).
-3. **Finalizar instalación de Playwright:** `npm install --save-dev playwright` ✅ completado; `npx playwright install chromium` ❌ BLOQUEADO (red inestable: ECONNRESET/timeout tras 2 intentos de 600s y 900s). Se configuró `playwright.config.js` para usar Chrome del sistema (`C:\Program Files\Google\Chrome\Application\chrome.exe`) vía `executablePath` si está disponible.
-4. **Ejecutar pruebas E2E:** ❌ BLOQUEADAS — no hay servidor PHP activo en `127.0.0.1:8000` ni MySQL/base de datos `hotel_lockers` cargada; además el navegador de Playwright no se pudo descargar. No se ejecutó ninguna prueba; **no se inventan resultados**.
-5. **Ajustar `manifest.webmanifest`** al nombre público "Grand Sirenis Locker App" (Fase 6, sin cambios visuales aún).
-6. **Verificación de JS y seguridad básica** (pendiente).
-7. **Fase 2 (futura):** mejora de UI/UX, sin rediseño aún.
-
-## Problemas abiertos
-- No hay repositorio Git ni `.gitignore` inicializado (`.gitignore` creado, falta `git init`).
-- Credenciales de MySQL en texto plano en `private/config.php`.
-- Playwright: paquete npm instalado ✅, pero Chromium de Playwright no se pudo descargar (red inestable). Chrome del sistema disponible pero pruebas no ejecutadas por falta de servidor PHP/MySQL activo.
-- Nombre PWA aún es "LockerFlow", no "Grand Sirenis Locker App".
-- No hay análisis estático de PHP ni linter de JS instalados (no hay dependencias; se usa `php -l` y revisión manual).
+## Pendientes / bloqueos
+1. **Playwright E2E no ejecutado.** `npx playwright install chromium` falló dos veces por red (`ECONNRESET`/timeout). `tests/playwright.config.js` usa Chrome del sistema vía `executablePath`, pero las pruebas no se corrieron: **no hay resultados inventados**.
+2. **No se creó cuenta de administrador real** para no consumir el primer registro de administrador de la app. El flujo de registro/login queda pendiente de validación E2E con autorización.
+3. `root` sigue disponible en XAMPP para tareas administrativas; la app ya no lo usa.
+4. Nombre PWA aún "LockerFlow" (pendiente, sin cambios de UI/UX).
+5. No se actualizaron XAMPP/PHP/MariaDB (requiere pruebas y autorización).
 
 ## Siguiente paso recomendado
-1. Verificar que terminó `npm install --save-dev playwright` en background.
-2. Ejecutar `npx playwright install chromium`.
-3. Iniciar PHP (`scripts/start-dev.ps1`) y MySQL (XAMPP).
-4. Ejecutar `npx playwright test --browser=chromium`.
-5. Registrar resultados (exitosos/fallidos/bloqueados) en `docs/SESSION_STATE.md`.
+1. Con red estable: `npx playwright install chromium` y ejecutar `tests/e2e/auth.spec.js` contra `php -S 127.0.0.1:8000 -t public` + MariaDB.
+2. Con autorización expresa: crear la primera cuenta de administrador y validar registro/login/CSRF.
+3. Revisar UI/UX con `ui-ux-desktop` en una fase separada (no iniciada).

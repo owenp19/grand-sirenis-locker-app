@@ -29,4 +29,5 @@ Sector hospitalidad / hoteles. El sistema gestiona el inventario de lockers, qui
 - `operador`: administra lockers, consulta gráficos y movimientos; no crea cuentas.
 
 ## Datos sensibles
-- `private/config.php` contiene credenciales de MySQL (`root` / contraseña vacía por defecto en XAMPP). Nunca commitear valores reales; mover a variables de entorno.
+- `private/config.php` ya **no contiene credenciales**: lee `.env` o variables de entorno. `.env` no se versiona y `.env.example` solo tiene placeholders.
+- La aplicación usa el usuario de privilegios mínimos `lockerflow_app` (solo `SELECT/INSERT/UPDATE/DELETE` sobre `hotel_lockers`), nunca `root`.
