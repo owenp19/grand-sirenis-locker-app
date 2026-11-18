@@ -1,0 +1,16 @@
+{
+  "id": "./index.php",
+  "name": "LockerFlow | Gestión Hotelera",
+  "short_name": "LockerFlow",
+  "description": "Administración local de lockers, colaboradores y movimientos para hoteles.",
+  "start_url": "./index.php",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f8fa",
+  "theme_color": "#152b41",
+  "lang": "es-CO",
+  "icons": [
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}

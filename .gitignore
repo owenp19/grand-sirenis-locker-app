@@ -1,0 +1,37 @@
+# .gitignore — Grand Sirenis Locker App
+# No commitear credenciales, dependencias ni respaldos.
+
+# Credenciales y configuración local con secretos
+private/config.php
+.env
+.env.local
+*.env
+
+# Dependencias Node
+node_modules/
+package-lock.json
+
+# Respaldo de base de datos y storage
+storage/
+*.sql
+*.bak
+*.zip
+
+# Playwright resultados y reportes
+playwright-report/
+test-results/
+screenshots/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Sistema operativo
+Thumbs.db
+Desktop.ini
+*~
+
+# Logs
+*.log
+error_log
