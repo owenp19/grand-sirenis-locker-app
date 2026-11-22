@@ -3,7 +3,7 @@
 Aplicación local, ligera y segura para gestionar los lockers (casilleros) de los colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron).
 
 <p align="center">
-  <img src="public/assets/image/grand-sirenis-locker-app-logo-black-720.png" alt="Grand Sirenis Locker App" width="200">
+  <img src="public/assets/image/grand-sirenis-locker-app-logo-white.png" alt="Grand Sirenis Locker App" width="200">
 </p>
 
 <div align="center">
