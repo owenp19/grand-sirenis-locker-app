@@ -1,6 +1,31 @@
-# 🔐 Grand Sirenis Locker App · Gestión local de lockers para hotel
+# Grand Sirenis Locker App · Gestión local de lockers para hotel
 
 Aplicación local, ligera y segura para gestionar los lockers (casilleros) de los colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron).
+
+<p align="center">
+  <img src="public/assets/image/grand-sirenis-locker-app-logo-black-720.png" alt="Grand Sirenis Locker App" width="200">
+</p>
+
+<div align="center">
+  <img
+    src="public/assets/image/grand-sirenis-locker-app-logo-black-720.png"
+    alt="Pantallazo 1"
+    width="24%"
+    style="max-width: 240px; vertical-align: top; margin: 0 8px;"
+  />
+  <img
+    src="public/assets/image/grand-sirenis-locker-app-favicon.png"
+    alt="Pantallazo 2"
+    width="24%"
+    style="max-width: 240px; vertical-align: top; margin: 0 8px;"
+  />
+  <img
+    src="public/assets/image/grand-sirenis-locker-app-logo-white.png"
+    alt="Pantallazo 3"
+    width="24%"
+    style="max-width: 240px; vertical-align: top; margin: 0 8px;"
+  />
+</div>
 
 ---
 
@@ -163,7 +188,7 @@ C:\xampp\php\php.exe scripts/reset-admin-user.php --user=tu_usuario --role=admin
 
 ### Variables de entorno (`.env`)
 
-El archivo `.env` **no se versiona**. Copia `.env.example` a `.env` y ajusta los valores con tus credenciales reales.
+El archivo `.env` **no se versiona**. Copia `.env.example` a `.env` y configura los valores con tus credenciales reales.
 
 | Variable                        | Descripción                                        | Ejemplo                    |
 | ------------------------------- | -------------------------------------------------- | -------------------------- |
@@ -184,7 +209,7 @@ El usuario de aplicación tiene solo `SELECT, INSERT, UPDATE, DELETE` sobre la b
 4. Abre **http://127.0.0.1:8000/register.php** desde el mismo equipo. El primer registro crea automáticamente el **administrador principal**.
 5. Para futuros accesos, abre **http://127.0.0.1:8000/login.php**.
 
-> ⚠️ PHP y MySQL son servicios separados. `php -S` solo inicia PHP: mantén MySQL activo. No abras los archivos `.php` con doble clic. No expongas PHP ni MySQL a internet.
+> **Nota:** PHP y MySQL son servicios separados. `php -S` solo inicia PHP: mantén MySQL activo. No abras los archivos `.php` con doble clic. No expongas PHP ni MySQL a internet.
 
 ---
 
