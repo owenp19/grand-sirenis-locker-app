@@ -3,18 +3,23 @@
 Instrucciones permanentes para Codex. Mantener este documento breve; las instrucciones especializadas viven en `.agents/skills/*/SKILL.md`.
 
 ## 1. Nombre y objetivo del proyecto
-**Grand Sirenis Locker App** (el README lo denomina "LockerFlow"). Aplicación local, ligera y segura para gestionar lockers de colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron).
+**Grand Sirenis Locker App**. Aplicación local, ligera y segura para gestionar lockers de colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron).
 
 ## 2. Tecnologías utilizadas
 - Windows 10 (x64), PHP 8.2.12 (CLI, extensiones `pdo`, `pdo_mysql`, `session`), MariaDB 10.4.32 (XAMPP, `C:\xampp`), Node.js v26.13.0 / npm 11.19.1, Git 2.54.0.
 - HTML5, CSS3, JavaScript vanilla (sin CDN ni dependencias externas), PWA (manifest + service worker), Playwright para pruebas E2E.
+- Design System global: Roboto variable autoalojada (WOFF2) y Lucide Icons (ISC) empaquetados como sprite SVG local.
 
 ## 3. Arquitectura vigente
 - `public/` expuesto al servidor: `index.php` (dashboard), `login.php`, `register.php`, `logout.php`, `setup.php` (redirige), `api.php` (CRUD, auditoría, exportaciones), `sw.js`, `manifest.webmanifest`, `offline.html`, `icons/`, `assets/`.
+- Recursos de imagen: `public/assets/image/` (logos, favicon, icono Windows renombrados con la identidad de Grand Sirenis Locker App).
+- Estilos en cascada: `assets/css/theme.css` (tokens + `@font-face`) → `assets/css/app.css` / `auth.css` (layout por página) → `assets/css/components.css` (componentes globales, se carga al final).
+- Recursos visuales: `assets/fonts/roboto-*.woff2`, `assets/icons/lucide-sprite.svg` (generado por `scripts/build-icons.js` con `npm run icons:build`).
 - `private/` interno (no servido por `php -S -t public`): `config.php` (conexión MySQL), `bootstrap.php` (PDO singleton, sesiones, CSRF, helpers de seguridad, cabeceras).
 - `db/`: `schema.sql`, `seed.sql`, `migrations/001_roles_usuarios.sql`.
 - Servidor: `php -S 127.0.0.1:8000 -t public`; MySQL por separado (XAMPP).
-- Base de datos: `hotel_lockers`, tablas `users`, `lockers`, `movements` (InnoDB, utf8mb4).
+- Directorio del proyecto: `C:\Users\Owen\Documents\Sueños\software-apps\Grand-Sirenis-Locker-app` (corregido de `Grand-Sirenis-Loker-app`).
+- Base de datos: `sirenis_locker_db`, tablas `users`, `lockers`, `movements` (InnoDB, utf8mb4).
 
 ## 4. Convenciones de código
 - PHP: `declare(strict_types=1)`, consultas preparadas PDO (`EMULATE_PREPARES => false`), `password_hash`/`password_verify`, helpers de `bootstrap.php` (`h()`, `csrf_token()`, `field()`, `valid_date()`, `respond()`, `fail()`).
@@ -54,7 +59,7 @@ No almacenar contraseñas, tokens ni datos sensibles en estos documentos. El có
 - No borrar archivos ni modificar bases de datos reales sin respaldo y autorización.
 - No ejecutar operaciones irreversibles (`DROP`, `DELETE` sin `WHERE`, `TRUNCATE`) sin aprobación expresa.
 - `db/seed.sql` solo en instalación nueva; `db/migrations/001_roles_usuarios.sql` solo una vez sobre base existente.
-- Antes de cualquier actualización, exportar respaldo SQL desde phpMyAdmin (`hotel_lockers → Exportar → SQL`).
+- Antes de cualquier actualización, exportar respaldo SQL desde phpMyAdmin (`sirenis_locker_db → Exportar → SQL`).
 
 ## 11. Activación inteligente de skills y optimización de contexto
 - Activar automáticamente los skills necesarios según la tarea (matriz en `.agents/skills/token-context-optimizer/SKILL.md`); no cargar skills irrelevantes.
@@ -69,5 +74,16 @@ No almacenar contraseñas, tokens ni datos sensibles en estos documentos. El có
 - Distinguir siempre datos reales de datos de demostración (`db/seed.sql` es el baseline original/demo).
 - No modificar credenciales de producción sin autorización.
 - Antes de migrar una base existente, crear respaldo (`scripts/backup-database.ps1`).
-- El usuario de aplicación de MySQL debe tener privilegios mínimos (SELECT/INSERT/UPDATE/DELETE sobre `hotel_lockers`); nunca usar `root` en la aplicación.
+- El usuario de aplicación de MySQL debe tener privilegios mínimos (SELECT/INSERT/UPDATE/DELETE sobre `sirenis_locker_db`); nunca usar `root` en la aplicación.
 - Los secretos viven en `.env` (no versionado) o variables de entorno; `.env.example` solo contiene placeholders.
+
+## 13. Política global de recursos visuales
+- Solo se incorporan recursos **originales, CC0 o con licencia que permita expresamente uso comercial**; se prefieren licencias sin atribución obligatoria.
+- Prohibido usar imágenes premium, con marca de agua, capturadas de terceros o de licencia desconocida. Ante la duda, no se incorpora el recurso.
+- Verificar la licencia **antes** de descargar; registrar procedencia, autor, versión, licencia y fecha de verificación en `docs/ASSET_LICENSES.md`.
+- Alojar los recursos localmente: sin CDN ni peticiones externas en tiempo de ejecución.
+- Optimizar el formato: SVG para iconos, WOFF2 para tipografía, WebP/AVIF para fotografía; evitar modelos 3D pesados o innecesarios.
+- Iconos: Lucide mediante el sprite local. Añadir el nombre a `scripts/build-icons.js` y regenerar con `npm run icons:build`; no cargar iconos que no se usen.
+- Tipografía: Roboto variable local en `public/assets/fonts/` con `font-display: swap`; no añadir importaciones de Google Fonts ni duplicar `@font-face`.
+- Usar los tokens y clases de `theme.css`/`components.css`; evitar `style="..."` en HTML generado.
+- Si la licencia exige atribución, incluir el aviso en `docs/ASSET_LICENSES.md` y en la documentación visible que corresponda.

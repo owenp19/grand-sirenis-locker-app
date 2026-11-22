@@ -18,7 +18,7 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-e2e.ps1
 ```
 El script:
-1. Recrea `hotel_lockers_test` desde `hotel_lockers` (datos demo).
+1. Recrea `hotel_lockers_test` desde `sirenis_locker_db` (datos demo).
 2. Concede al usuario de aplicación solo `SELECT/INSERT/UPDATE/DELETE`.
 3. Arranca PHP en el puerto 8001 con `DB_NAME=hotel_lockers_test`.
 4. Ejecuta Playwright y detiene el servidor incluso si hay fallos.
@@ -40,5 +40,5 @@ npx playwright test --config=tests/playwright.config.js
 
 ## Reglas
 - Usar siempre datos sintéticos y la base `hotel_lockers_test`.
-- No ejecutar pruebas destructivas sobre `hotel_lockers` ni datos reales.
+- No ejecutar pruebas destructivas sobre `sirenis_locker_db` ni datos reales.
 - No declarar pruebas superadas sin ejecutarlas ni adjuntar resultados.

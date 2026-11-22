@@ -27,7 +27,7 @@ Este skill se activa al iniciar y al finalizar cada sesión de trabajo.
 | Decisiones técnicas | `docs/DECISIONS.md` | Decisiones de diseño y arquitectura tomadas, con fecha y motivo |
 | Backlog | `docs/BACKLOG.md` | Lista priorizada de tareas técnicas pendientes |
 | Changelog | `docs/CHANGELOG.md` | Cambios relevantes por versión/fecha |
-| Esquema de base de datos | `docs/DATABASE_SCHEMA.md` | Esquema real de `hotel_lockers` (tablas, campos, índices, relaciones) |
+| Esquema de base de datos | `docs/DATABASE_SCHEMA.md` | Esquema real de `sirenis_locker_db` (tablas, campos, índices, relaciones) |
 | Diagnóstico técnico | `docs/DIAGNOSTICO.md` | Resultado de la auditoría Fase 1 (ya creado) |
 
 ---

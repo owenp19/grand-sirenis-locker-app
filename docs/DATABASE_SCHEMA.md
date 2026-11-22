@@ -1,4 +1,4 @@
-# Esquema de base de datos — hotel_lockers
+# Esquema de base de datos — sirenis_locker_db
 
 Esquema real documentado a partir de `db/schema.sql`, `db/seed.sql` y `db/migrations/001_roles_usuarios.sql`.
 Motor: InnoDB. Charset: utf8mb4. Collation: utf8mb4_unicode_ci.
@@ -10,7 +10,7 @@ Motor: InnoDB. Charset: utf8mb4. Collation: utf8mb4_unicode_ci.
 | `username` | VARCHAR(60) | NO | UNIQUE | |
 | `display_name` | VARCHAR(120) | NO | | |
 | `password_hash` | VARCHAR(255) | NO | | Hash de contraseña (`password_hash`) |
-| `role` | ENUM('administrador','operador') | NO | | DEFAULT 'administrador' |
+| `role` | ENUM('administrador','operador') | NO | | DEFAULT 'operador' |
 | `last_login_at` | DATETIME | SÍ | | |
 | `created_at` | TIMESTAMP | NO | | DEFAULT CURRENT_TIMESTAMP |
 
@@ -68,10 +68,14 @@ Clave foránea: `fk_movements_user` (`actor_id` → `users(id)`).
 |---|---|---|
 | `db/migrations/001_roles_usuarios.sql` | Añade columna `role` a `users` existentes | No (falla si `role` ya existe) |
 | `db/migrations/002_schema_hardening.sql` | Añade `uk_block_locker` e `idx_movements_person` | Sí (`ADD INDEX IF NOT EXISTS`, MariaDB 10.4+) |
+| `db/migrations/003_rol_predeterminado_operador.sql` | Cambia rol por defecto a `operador` | Sí (`MODIFY COLUMN`) |
+| `db/migrations/004_proteccion_movimientos.sql` | Trigger: movements inmutable (no UPDATE/DELETE) | Sí (`DROP TRIGGER IF EXISTS`) |
+| `db/migrations/005_privilegios_minimos.sql` | Privilegios mínimos del usuario de app | Sí (GRANT/REVOKE repetibles) |
+| `db/migrations/006_integridad_estado_titular.sql` | Trigger: coherencia status/titular en lockers | Sí (`DROP TRIGGER IF EXISTS`) |
 
 ## Usuario de aplicación y privilegios
-- La aplicación se conecta con `lockerflow_app` (hosts `localhost` y `127.0.0.1`), nunca con `root`.
-- Privilegios: `SELECT, INSERT, UPDATE, DELETE ON hotel_lockers.*` únicamente. Sin `CREATE`, `ALTER`, `DROP`, `GRANT` ni acceso a otras bases.
+- La aplicación se conecta con `owenpusey`, nunca con `root`.
+- Privilegios: `SELECT, INSERT, UPDATE, DELETE ON sirenis_locker_db.*` únicamente. Sin `CREATE`, `ALTER`, `DROP`, `GRANT` ni acceso a otras bases.
 - La contraseña vive solo en `.env` (no versionado). Las migraciones y tareas administrativas se ejecutan aparte con la cuenta administradora de XAMPP.
 
 ## Datos reales vs. demostración
@@ -80,12 +84,12 @@ Clave foránea: `fk_movements_user` (`actor_id` → `users(id)`).
 - `hotel_lockers_test` es una copia aislada para pruebas E2E; contiene un administrador y un operador sintéticos.
 
 ## Pruebas y respaldo
-- Base de pruebas: `scripts/setup-test-db.ps1` recrea `hotel_lockers_test` desde `hotel_lockers` y concede privilegios mínimos al usuario de aplicación.
+- Base de pruebas: `scripts/setup-test-db.ps1` recrea `hotel_lockers_test` desde `sirenis_locker_db` y concede privilegios mínimos al usuario de aplicación.
 - Suite E2E: `scripts/run-e2e.ps1` (base aislada + PHP en puerto 8001 + Playwright).
-- Respaldo: `scripts/backup-database.ps1` (usa `lockerflow_app`, `MYSQL_PWD`, `--single-transaction`; salida en `storage/backups/`).
-- Restauración verificada en `hotel_lockers_restore`: 156 lockers / 0 usuarios / 0 movimientos.
+- Respaldo: `scripts/backup-database.ps1` (usa `owenpusey`, `MYSQL_PWD`, `--single-transaction`; salida en `storage/backups/`).
+- Restauración verificada en `sirenis_locker_db`: 156 lockers / 0 usuarios / 0 movimientos.
 
 ## Instalación
-- Nueva: importar `db/schema.sql`, luego `db/seed.sql` (una sola vez).
+- Nueva: importar `db/schema.sql` (crea `sirenis_locker_db`), luego `db/seed.sql` (una sola vez).
 - Actualización de base previa: aplicar en orden las migraciones de `db/migrations/` que falten; `002` es idempotente y no borra datos.
 - Antes de migrar datos reales: `scripts/backup-database.ps1` (respaldo SQL previo).

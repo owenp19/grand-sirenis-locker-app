@@ -27,7 +27,7 @@ header('Referrer-Policy: no-referrer');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
 header('Cache-Control: private, no-store');
 if (!empty($isHttps)) header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
-header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
 
 function config(): array { return $GLOBALS['cfg']; }
 function db(): PDO {
@@ -53,12 +53,45 @@ function csrf_token(): string {
 function csrf_valid(string $value): bool { return hash_equals(csrf_token(), $value); }
 function current_user(): ?array {
     if (empty($_SESSION['user']) || !is_array($_SESSION['user'])) return null;
-    if ((time() - (int) ($_SESSION['last_seen'] ?? 0)) > 4 * 3600) {
-        unset($_SESSION['user'], $_SESSION['last_seen']);
+    $now = time();
+    // Expiración por inactividad (4 h) y expiración absoluta de la sesión (12 h).
+    $started = (int) ($_SESSION['started_at'] ?? $now);
+    if ($started > 0 && ($now - $started) > 12 * 3600) {
+        unset($_SESSION['user'], $_SESSION['last_seen'], $_SESSION['started_at']);
         return null;
     }
-    $_SESSION['last_seen'] = time();
+    if (($now - (int) ($_SESSION['last_seen'] ?? 0)) > 4 * 3600) {
+        unset($_SESSION['user'], $_SESSION['last_seen'], $_SESSION['started_at']);
+        return null;
+    }
+    $_SESSION['last_seen'] = $now;
     return $_SESSION['user'];
+}
+/**
+ * Autorización por rol leída de MySQL (no de la sesión).
+ * Evita que un usuario degradado conserve privilegios hasta cerrar sesión.
+ * Se resuelve una sola vez por petición.
+ */
+function is_admin(): bool {
+    static $resolved = null;
+    if ($resolved !== null) return $resolved;
+    $sessionUser = $_SESSION['user'] ?? null;
+    if (!is_array($sessionUser)) return $resolved = false;
+    try {
+        $q = db()->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
+        $q->execute([(int) ($sessionUser['id'] ?? 0)]);
+        $role = $q->fetchColumn();
+        if (!is_string($role) || $role === '') {
+            // La cuenta ya no existe: se invalida la sesión.
+            unset($_SESSION['user'], $_SESSION['last_seen'], $_SESSION['started_at']);
+            return $resolved = false;
+        }
+        $_SESSION['user']['role'] = $role;
+        return $resolved = ($role === 'administrador');
+    } catch (Throwable $e) {
+        error_log('LockerFlow role check: ' . $e->getMessage());
+        return $resolved = (($sessionUser['role'] ?? '') === 'administrador');
+    }
 }
 function require_login(bool $asJson = false): array {
     $u = current_user();

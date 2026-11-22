@@ -5,7 +5,8 @@ Aplicación web ligera de tres capas sin frameworks: presentación, lógica de n
 
 ## Capa de presentación (`public/`)
 - Puntos de entrada: `index.php` (dashboard, requiere sesión), `login.php`, `register.php`, `logout.php`, `setup.php` (redirección a `register.php`), `api.php` (endpoint único de CRUD, auditoría y exportaciones).
-- Recursos estáticos: `assets/css/app.css`, `assets/css/auth.css`, `assets/js/app.js`, `assets/js/auth.js`, `icons/`, `manifest.webmanifest`, `sw.js`, `offline.html`.
+- Estilos en cascada: `assets/css/theme.css` (tokens, `@font-face` de Roboto y base) → `assets/css/app.css` / `assets/css/auth.css` (layout por página) → `assets/css/components.css` (normalización de componentes, se carga al final).
+- Recursos estáticos: `assets/fonts/` (Roboto variable WOFF2), `assets/icons/lucide-sprite.svg`, `assets/js/app.js`, `assets/js/auth.js`, `icons/`, `manifest.webmanifest`, `sw.js`, `offline.html`.
 - Las vistas PHP contienen HTML con inserción mínima de datos ya preparados (helpers `h()` para escape).
 
 ## Capa de lógica de negocio
@@ -14,7 +15,7 @@ Aplicación web ligera de tres capas sin frameworks: presentación, lógica de n
 - `public/login.php`, `public/register.php`, `public/logout.php`: autenticación con CSRF, `password_verify`/`password_hash`, rate limit por usuario+IP, rotación de ID/token y destrucción de sesión al salir.
 
 ## Capa de datos (`db/`)
-- Base de datos: `hotel_lockers` (utf8mb4, InnoDB).
+- Base de datos: `sirenis_locker_db` (utf8mb4, InnoDB).
 - Tablas: `users`, `lockers`, `movements`.
 - Esquema detallado: ver `docs/DATABASE_SCHEMA.md`.
 - Instalación nueva: `db/schema.sql` + `db/seed.sql` (una sola vez). Actualización: migraciones de `db/migrations/` en orden; `002_schema_hardening.sql` es idempotente.
@@ -27,8 +28,8 @@ Aplicación web ligera de tres capas sin frameworks: presentación, lógica de n
 5. El frontend renderiza la vista dinámicamente (sin recarga completa) usando `fetch`.
 
 ## PWA
-- `manifest.webmanifest`: nombre `LockerFlow | Gestión Hotelera`, `short_name` `LockerFlow`, `display: standalone`, íconos 192/512, `lang: es-CO`. (Pendiente: renombrar a "Grand Sirenis Locker App".)
-- `sw.js` (v2): caché estática de assets (CSS, JS, íconos, manifest, offline.html); excluye `/api.php`, `/login.php`, `/register.php`, `/setup.php`, `/logout.php`; navegación con `no-store` y fallback a `offline.html`.
+- `manifest.webmanifest`: nombre `Grand Sirenis Locker App`, `short_name` `Sirenis Locker`, `display: standalone`, íconos 192/512, `lang: es-CO`, colores de marca (`background_color: #E7DFC9`, `theme_color: #A5832E`).
+- `sw.js` (v3): caché estática de assets (tokens CSS, componentes, fuente Roboto, sprite Lucide, JS, íconos, manifest, offline.html); excluye `/api.php`, `/login.php`, `/register.php`, `/setup.php`, `/logout.php`; navegación con `no-store` y fallback a `offline.html`.
 
 ## Protección de archivos internos
 - `php -S -t public` solo sirve `public/`; `private/` y `db/` no son accesibles por HTTP con este servidor.
@@ -43,6 +44,12 @@ Aplicación web ligera de tres capas sin frameworks: presentación, lógica de n
 - Suite E2E en `tests/e2e/` con Playwright sobre Chrome/Edge del sistema.
 - Ejecución aislada: `scripts/run-e2e.ps1` (base `hotel_lockers_test`, puerto 8001, limpieza garantizada).
 - Validación estática: `scripts/run-tests.ps1` (`php -l`, `node --check`).
+- Verificación visual Fase 5.1: `tests/manual/phase51-*.js` (fuente, sprite, consola, escritorio/móvil) con capturas en `tests/results/`.
+
+## Design System
+- Tokens en `theme.css`: marca y superficies, semánticos (`--color-*`), tipografía (`--text-*`, `--weight-*`), espaciado (`--space-*`), radios, sombras, transiciones, layout y foco.
+- Componentes en `components.css`: `.btn`/`.btn-*`, formularios, `.panel`, tablas, `.pill`, `.modal`, alertas, `.empty`, `.skeleton-*`, `.tone-*`, `.icon`.
+- Iconos: símbolo Lucide referenciado como `assets/icons/lucide-sprite.svg#<nombre>`; el sprite se regenera con `npm run icons:build`.
 
 ## Decisiones de diseño ya tomadas (ver `docs/DECISIONS.md`)
 - No usar frameworks pesados.

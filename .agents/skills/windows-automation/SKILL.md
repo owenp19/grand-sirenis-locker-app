@@ -30,7 +30,7 @@ Este skill se activa cuando se necesitan scripts para arrancar el servidor PHP, 
 | Inicio de entorno de desarrollo | `scripts/start-dev.ps1` | Inicia PHP (`php -S 127.0.0.1:8000 -t public`) y verifica que MySQL esté disponible; alternativa a `iniciar-servidor.bat` |
 | Verificación de entorno | `scripts/check-environment.ps1` | Verifica versiones de PHP, Node, MySQL, extensiones `pdo_mysql`/`session`, puerto 8000 libre, conectividad a MySQL |
 | Ejecución de pruebas | `scripts/run-tests.ps1` | Ejecuta `php -l` sobre archivos PHP y, si existe, `npx playwright test` |
-| Respaldo de base de datos | `scripts/backup-database.ps1` | Exporta `hotel_lockers` con `mysqldump` (XAMPP) a `storage/backups/` con fecha; no almacena credenciales en el script |
+| Respaldo de base de datos | `scripts/backup-database.ps1` | Exporta `sirenis_locker_db` con `mysqldump` (XAMPP) a `storage/backups/` con fecha; no almacena credenciales en el script |
 
 > Las rutas y contenidos exactos se crean en la Fase de automatización Windows, tras validar que cada uno responde a una necesidad real.
 

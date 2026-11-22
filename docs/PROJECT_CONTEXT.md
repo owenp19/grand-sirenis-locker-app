@@ -1,7 +1,7 @@
 # Contexto del proyecto — Grand Sirenis Locker App
 
 ## Nombre y propósito
-Nombre oficial: **Grand Sirenis Locker App**. El README existente lo denomina "LockerFlow · PWA local para gestionar lockers del hotel". Es una aplicación local de escritorio (PWA instalable) para administrar los lockers (casilleros) de los colaboradores de un hotel.
+Nombre oficial: **Grand Sirenis Locker App**. El README se denomina "Grand Sirenis Locker App · PWA local para gestionar lockers del hotel". Es una aplicación local de escritorio (PWA instalable) para administrar los lockers (casilleros) de los colaboradores de un hotel.
 
 ## Dominio
 Sector hospitalidad / hoteles. El sistema gestiona el inventario de lockers, quién tiene asignado cada uno, departamento, jefe inmediato, estado del locker, fechas de entrega y una bitácora de todos los movimientos con el responsable de la sesión.
@@ -28,6 +28,12 @@ Sector hospitalidad / hoteles. El sistema gestiona el inventario de lockers, qui
 - `administrador`: crea cuentas y administra lockers.
 - `operador`: administra lockers, consulta gráficos y movimientos; no crea cuentas.
 
+## Design System (Fase 5.1)
+- Tipografía Roboto variable autoalojada y tokens CSS centralizados en `public/assets/css/theme.css`.
+- Componentes globales normalizados en `public/assets/css/components.css` (botones, inputs, tablas, tarjetas, modales, badges, alertas, estados vacíos, skeletons).
+- Iconos Lucide (ISC) en un sprite local generado con `npm run icons:build`.
+- Licencias y procedencia en `docs/ASSET_LICENSES.md`.
+
 ## Datos sensibles
 - `private/config.php` ya **no contiene credenciales**: lee `.env` o variables de entorno. `.env` no se versiona y `.env.example` solo tiene placeholders.
-- La aplicación usa el usuario de privilegios mínimos `lockerflow_app` (solo `SELECT/INSERT/UPDATE/DELETE` sobre `hotel_lockers`), nunca `root`.
+- La aplicación usa el usuario de privilegios mínimos `owenpusey` (solo `SELECT/INSERT/UPDATE/DELETE` sobre `sirenis_locker_db`), nunca `root`.

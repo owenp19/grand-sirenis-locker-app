@@ -41,10 +41,17 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
     headless: true,
     viewport: { width: 1280, height: 800 },
-    actionTimeout: 10000,
-    navigationTimeout: 30000,
+    actionTimeout: 20000,
+    navigationTimeout: 45000,
     launchOptions: browserPath ? { executablePath: browserPath } : {},
   },
+
+  // El servidor PHP integrado atiende una petición a la vez; con varias
+  // peticiones en paralelo (CSS, JS, sprite, API) una vista puede tardar
+  // varios segundos en pintar, sobre todo en el primer arranque. Damos margen
+  // sin ocultar fallos funcionales: las aserciones siguen siendo estrictas.
+  timeout: 90000,
+  expect: { timeout: 30000 },
 
   projects: [
     {

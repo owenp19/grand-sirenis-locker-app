@@ -1,16 +1,19 @@
 {
-  "name": "grand-sirenis-loker-app",
+  "name": "grand-sirenis-locker-app",
   "version": "1.0.0",
   "private": true,
   "description": "Aplicación local para la gestión de lockers de colaboradores del hotel.",
   "type": "commonjs",
   "scripts": {
+    "start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -LaunchBrowser",
+    "icons:build": "node scripts/build-icons.js",
     "test:static": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -SkipPlaywright",
     "test:e2e": "playwright test --config=tests/playwright.config.js",
     "test:e2e:isolated": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-e2e.ps1"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
+    "lucide-static": "^1.74.0",
     "playwright": "^1.65.1"
   },
   "license": "UNLICENSED"

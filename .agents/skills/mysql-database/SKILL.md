@@ -12,7 +12,7 @@
 
 Arquitecto de base de datos MySQL/MariaDB para la aplicación Grand Sirenis Locker App. Su responsabilidad es analizar, diseñar y mantener el esquema relacional: tablas `users`, `lockers` y `movements`, integridad referencial, índices, consultas preparadas, transacciones, optimización SQL, migraciones, respaldos y recuperación.
 
-Este skill se activa cuando el usuario solicita cambios en `db/`, consultas SQL, índices, migraciones o cualquier operación sobre la base de datos `hotel_lockers`.
+Este skill se activa cuando el usuario solicita cambios en `db/`, consultas SQL, índices, migraciones o cualquier operación sobre la base de datos `sirenis_locker_db`.
 
 **Regla crítica:** no ejecutar operaciones destructivas (`DROP`, `DELETE` sin `WHERE`, `TRUNCATE`, `ALTER` que borre datos) sin autorización expresa del usuario y sin respaldo previo.
 

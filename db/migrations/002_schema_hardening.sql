@@ -3,11 +3,11 @@
 -- Añade unicidad lógica de locker (bloque + número) e índice de búsqueda
 -- de movimientos por persona. No borra datos ni recrea tablas.
 --
--- Uso: instalar/actualizar sobre una base hotel_lockers existente.
+-- Uso: instalar/actualizar sobre una base sirenis_locker_db existente.
 -- Idempotente: usa IF NOT EXISTS (soportado por MariaDB 10.4+).
 -- Antes de ejecutar sobre datos reales: crear respaldo (scripts/backup-database.ps1).
 
-USE hotel_lockers;
+USE sirenis_locker_db;
 
 -- Evita dos lockers con el mismo bloque y número.
 ALTER TABLE lockers

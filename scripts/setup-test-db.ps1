@@ -4,7 +4,7 @@
     Crea o reinicia la base de datos aislada de pruebas (hotel_lockers_test).
 
 .DESCRIPCIÓN
-    Copia esquema y datos demo desde hotel_lockers con mysqldump y otorga al
+    Copia esquema y datos demo desde sirenis_locker_db con mysqldump y otorga al
     usuario de aplicacion solo SELECT/INSERT/UPDATE/DELETE sobre la base de
     pruebas. Requiere privilegios administrativos de MySQL (root local).
 
@@ -14,7 +14,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$SourceDb = 'hotel_lockers',
+    [string]$SourceDb = 'sirenis_locker_db',
     [string]$TestDb = 'hotel_lockers_test',
     [string]$RootUser = 'root',
     [switch]$KeepExisting,
@@ -50,7 +50,7 @@ if (-not (Test-Path $mysql)) { $mysql = (Get-Command mysql -ErrorAction Stop).So
 if (-not (Test-Path $mysqldump)) { $mysqldump = (Get-Command mysqldump -ErrorAction Stop).Source }
 
 $dotenv = Read-DotEnv (Join-Path $root '.env')
-$appUser = if ($dotenv.ContainsKey('DB_USER') -and $dotenv['DB_USER']) { $dotenv['DB_USER'] } else { 'lockerflow_app' }
+$appUser = if ($dotenv.ContainsKey('DB_USER') -and $dotenv['DB_USER']) { $dotenv['DB_USER'] } else { 'owenpusey' }
 if ($appUser -notmatch '^[A-Za-z0-9_.-]+$') { throw 'Nombre de usuario de aplicacion invalido en .env' }
 
 $rootPassword = $env:MYSQL_ROOT_PWD
@@ -77,7 +77,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Fallo la importacion en '$TestDb'." }
 
     Write-Host "Otorgando privilegios minimos a '$appUser'..." -ForegroundColor Cyan
-    & $mysql -u $RootUser -e "GRANT SELECT, INSERT, UPDATE, DELETE ON ``$TestDb``.* TO '$appUser'@'localhost'; GRANT SELECT, INSERT, UPDATE, DELETE ON ``$TestDb``.* TO '$appUser'@'127.0.0.1'; FLUSH PRIVILEGES;" 2>&1
+    & $mysql -u $RootUser -e "GRANT SELECT, INSERT, UPDATE, DELETE ON ``$TestDb``.* TO '$appUser'@'%'; FLUSH PRIVILEGES;" 2>&1
     if ($LASTEXITCODE -ne 0) { throw 'No se pudieron otorgar los privilegios de prueba.' }
 
     $counts = & $mysql -u $RootUser -N -e "SELECT (SELECT COUNT(*) FROM ``$TestDb``.lockers), (SELECT COUNT(*) FROM ``$TestDb``.users), (SELECT COUNT(*) FROM ``$TestDb``.movements);" 2>&1

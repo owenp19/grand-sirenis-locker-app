@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once dirname(__DIR__) . '/private/bootstrap.php';
 $user = require_login(true);
+$isAdmin = is_admin();
 header('Cache-Control: no-store, private');
 
 function rows_lockers(PDO $db): array {
@@ -18,10 +19,12 @@ function rows_lockers(PDO $db): array {
     return $q->fetchAll();
 }
 function rows_movements(PDO $db, ?int $limit = 500): array {
+    // Tope duro para acotar memoria en exportaciones y respaldos.
+    $max = $limit === null ? 50000 : min(max(1, $limit), 50000);
     $q = $db->query("SELECT id, action_name AS type, locker_id AS locker,
        COALESCE(person_name,'') AS person, actor_name AS `by`, detail AS description,
        DATE_FORMAT(created_at,'%Y-%m-%dT%H:%i:%s') AS at
-       FROM movements ORDER BY id DESC" . ($limit === null ? "" : " LIMIT " . min($limit, 100000)));
+       FROM movements ORDER BY id DESC LIMIT " . $max);
     return $q->fetchAll();
 }
 function get_lock(PDO $db, string $id): ?array {
@@ -170,7 +173,8 @@ try {
     $resource=(string) ($_GET['resource'] ?? 'bootstrap');
     if ($method==='GET' && $resource==='bootstrap') {
         respond(['ok'=>true,'lockers'=>rows_lockers($db),'movements'=>rows_movements($db),
-            'user'=>['name'=>$user['name'],'username'=>$user['username']], 'csrf'=>csrf_token(), 'serverTime'=>date(DATE_ATOM)]);
+            'user'=>['name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin],
+            'csrf'=>csrf_token(), 'serverTime'=>date(DATE_ATOM)]);
     }
     if ($method==='GET' && $resource==='export') {
         $type=(string)($_GET['type']??'');$now=date('Y-m-d_H-i');
@@ -184,9 +188,21 @@ try {
             csv_output("lockers_movimientos_$now.csv",['ID','Acción','Locker','Colaborador','Responsable','Detalle','Fecha'],array_map(static fn($r)=>[$r['id'],$r['type'],$r['locker'],$r['person'],$r['by'],$r['description'],$r['at']],$rows));
         }
         if ($type==='backup') {
+            // El respaldo completo incluye datos personales de todos los lockers: solo administradores.
+            if (!$isAdmin) fail('Solo un administrador puede descargar el respaldo completo.', 403);
             header('Content-Type: application/json; charset=utf-8');
             header('Content-Disposition: attachment; filename="lockers_respaldo_'.$now.'.json"');
-            echo json_encode(['exportedAt'=>date(DATE_ATOM),'lockers'=>rows_lockers($db),'movements'=>rows_movements($db,null)], JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_INVALID_UTF8_SUBSTITUTE);
+            $movements = rows_movements($db, null);
+            $totalMovements = (int) $db->query('SELECT COUNT(*) FROM movements')->fetchColumn();
+            echo json_encode([
+                'exportedAt' => date(DATE_ATOM),
+                'lockers' => rows_lockers($db),
+                'movements' => $movements,
+                // Metadatos de transparencia: si la bitácora supera el tope, se indica.
+                'movementsTotal' => $totalMovements,
+                'movementsLimit' => 50000,
+                'movementsTruncated' => $totalMovements > count($movements),
+            ], JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_INVALID_UTF8_SUBSTITUTE);
             exit;
         }
         fail('Exportación no reconocida.',404);

@@ -1,0 +1,596 @@
+/* ==========================================================================
+   Grand Sirenis Locker App · Welcome (primera pantalla pública)
+   Orden de carga: theme.css → welcome.css → components.css
+   Paleta arena + oro. Sin imágenes externas ni JavaScript.
+   ========================================================================== */
+
+.welcome-page {
+  --w-ink: #2B2620;
+  --w-body: #5E584E;
+  --w-muted: #6B6455;
+  --w-gold: var(--brand-gold);
+  --w-gold-deep: #8F6F28;
+  --w-gold-dark: #7A5D22;
+  --w-line: rgba(94, 88, 78, 0.14);
+
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  margin: 0;
+  overflow-x: hidden;
+  color: var(--w-body);
+  background:
+    radial-gradient(58rem 40rem at 88% -6%, rgba(191, 135, 104, 0.22), transparent 62%),
+    radial-gradient(46rem 34rem at 4% 104%, rgba(185, 168, 103, 0.3), transparent 64%),
+    linear-gradient(142deg, #FBF7EE 0%, #F4EDDC 44%, #E7DFC9 100%);
+}
+
+/* Estructura ---------------------------------------------------------------- */
+.welcome-page,
+.welcome-page *,
+.welcome-page *::before,
+.welcome-page *::after {
+  box-sizing: border-box;
+}
+
+.welcome-stage {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(24px, 3.4vw, 40px);
+  width: 100%;
+  max-width: 1380px;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: clamp(26px, 3.2vw, 46px) clamp(20px, 4.6vw, 68px) clamp(16px, 1.8vw, 24px);
+  /* Recorta solo los anillos decorativos (::before/::after) para que no
+     aporten scroll vertical; el contenido real siempre cabe dentro. */
+  overflow-x: visible;
+  overflow-y: clip;
+}
+
+.welcome-stage::before,
+.welcome-stage::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 1px solid rgba(165, 131, 46, 0.18);
+}
+
+.welcome-stage::before {
+  width: 640px;
+  height: 640px;
+  top: -320px;
+  right: 0;
+}
+
+.welcome-stage::after {
+  width: 420px;
+  height: 420px;
+  bottom: -270px;
+  left: -180px;
+  border-color: rgba(94, 88, 78, 0.1);
+}
+
+.welcome-main {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  align-items: center;
+  align-content: center;
+  gap: clamp(34px, 5vw, 76px);
+  padding: clamp(6px, 1.4vw, 18px) 0;
+}
+
+/* Enlace de salto ------------------------------------------------------------ */
+.welcome-skip {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--w-ink);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+  transform: translateY(-240%);
+  transition: transform var(--transition-fast);
+}
+
+.welcome-skip:focus {
+  transform: none;
+}
+
+.welcome-page :focus-visible {
+  outline-color: rgba(143, 111, 40, 0.6);
+}
+
+/* Columna de contenido ------------------------------------------------------- */
+.welcome-copy {
+  max-width: 620px;
+  animation: w-rise 620ms var(--ease-standard) both;
+}
+
+.welcome-logo {
+  display: block;
+  width: min(300px, 100%);
+  height: auto;
+  margin-bottom: clamp(24px, 3vw, 34px);
+}
+
+.welcome-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 16px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--w-muted);
+}
+
+.welcome-eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--w-gold);
+  box-shadow: 0 0 0 4px rgba(165, 131, 46, 0.14);
+}
+
+.welcome-title {
+  margin: 0 0 20px;
+}
+
+.welcome-title::before {
+  content: "";
+  display: block;
+  width: 54px;
+  height: 3px;
+  margin-bottom: 20px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--w-gold), rgba(165, 131, 46, 0));
+}
+
+.welcome-title-kicker {
+  display: block;
+  margin-bottom: 6px;
+  font-size: clamp(1rem, 1.1vw, 1.15rem);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.01em;
+  color: var(--w-muted);
+}
+
+.welcome-title-brand {
+  display: block;
+  font-size: clamp(2.1rem, 3.5vw, 3.35rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  color: var(--w-ink);
+  text-wrap: balance;
+}
+
+.welcome-lead {
+  max-width: 46ch;
+  margin: 0 0 clamp(26px, 3vw, 34px);
+  font-size: clamp(1rem, 1.15vw, 1.125rem);
+  line-height: 1.65;
+  color: var(--w-body);
+}
+
+/* Acción principal ----------------------------------------------------------- */
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.welcome-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 0 30px;
+  border-radius: var(--radius-pill);
+  background: var(--w-gold-deep);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+  box-shadow: 0 14px 30px -12px rgba(122, 93, 34, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: background var(--transition-base), transform var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.welcome-cta:hover {
+  background: var(--w-gold-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px -12px rgba(122, 93, 34, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.welcome-cta:active {
+  transform: translateY(0);
+}
+
+.welcome-cta:focus-visible {
+  outline: 3px solid rgba(143, 111, 40, 0.55);
+  outline-offset: 3px;
+}
+
+.welcome-cta .icon {
+  width: 18px;
+  height: 18px;
+  transition: transform var(--transition-base);
+}
+
+.welcome-cta:hover .icon {
+  transform: translateX(3px);
+}
+
+.welcome-access-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--w-body);
+}
+
+.welcome-access-note .icon {
+  color: var(--w-gold-deep);
+}
+
+/* Rasgos del sistema --------------------------------------------------------- */
+.welcome-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: clamp(28px, 3.4vw, 40px) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-features li {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--w-body);
+}
+
+.feature-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--w-line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--w-gold-deep);
+}
+
+.feature-icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Ilustración de lockers (CSS, sin imágenes externas) ----------------------- */
+.welcome-visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  animation: w-rise 760ms var(--ease-standard) 90ms both;
+}
+
+.welcome-plate {
+  width: 100%;
+  max-width: 520px;
+  padding: clamp(18px, 1.8vw, 24px);
+  border: 1px solid rgba(165, 131, 46, 0.2);
+  border-radius: clamp(20px, 2vw, 28px);
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 40px 80px -40px rgba(43, 38, 32, 0.42), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+  transform: rotate(-1.4deg);
+}
+
+.plate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.plate-title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--w-muted);
+}
+
+.plate-chip {
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  background: rgba(165, 131, 46, 0.12);
+  color: var(--w-gold-dark);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.locker-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: clamp(5px, 0.7vw, 8px);
+}
+
+.locker-door {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1.22;
+  border: 1px solid rgba(94, 88, 78, 0.14);
+  border-radius: 5px;
+  background: linear-gradient(160deg, #FBF8F0, #EFE7D5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.locker-door::after {
+  content: "";
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  width: 34%;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(94, 88, 78, 0.16);
+  transform: translateX(-50%);
+}
+
+.locker-door.is-used {
+  border-color: #8D6D27;
+  background: linear-gradient(160deg, #B4913A, #8F6F28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.locker-door.is-used::after {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.locker-door.is-warn {
+  border-color: #B2765A;
+  background: linear-gradient(160deg, #C58F72, #B2765A);
+}
+
+.locker-door.is-warn::after {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.plate-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 16px;
+  padding-top: 13px;
+  border-top: 1px solid var(--w-line);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--w-muted);
+}
+
+.plate-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot-free {
+  border: 1px solid rgba(94, 88, 78, 0.28);
+  background: #EFE7D5;
+}
+
+.dot-used {
+  background: var(--w-gold-deep);
+}
+
+.dot-warn {
+  background: #B2765A;
+}
+
+/* Tarjetas flotantes --------------------------------------------------------- */
+.welcome-float {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid rgba(165, 131, 46, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 36px -18px rgba(43, 38, 32, 0.45);
+  animation: w-float 7s ease-in-out infinite;
+}
+
+.welcome-float--secure {
+  top: 19%;
+  right: -4%;
+}
+
+.welcome-float--data {
+  bottom: 27%;
+  left: -4%;
+  animation-delay: -3.5s;
+}
+
+.float-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(165, 131, 46, 0.12);
+  color: var(--w-gold-dark);
+}
+
+.float-icon .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.float-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.float-text strong {
+  font-size: var(--text-sm);
+  color: var(--w-ink);
+}
+
+.float-text small {
+  font-size: var(--text-xs);
+  color: var(--w-muted);
+}
+
+/* Pie ----------------------------------------------------------------------- */
+.welcome-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  padding-top: clamp(12px, 1.4vw, 18px);
+  border-top: 1px solid var(--w-line);
+  font-size: var(--text-xs);
+  color: var(--w-muted);
+}
+
+.welcome-footer-made {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.welcome-heart {
+  color: var(--w-gold-deep);
+}
+
+/* Movimiento ---------------------------------------------------------------- */
+@keyframes w-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes w-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+/* Responsive ---------------------------------------------------------------- */
+@media (max-width: 1080px) {
+  .welcome-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(34px, 5vw, 48px);
+  }
+
+  .welcome-plate {
+    max-width: 560px;
+    transform: none;
+  }
+
+  .welcome-float--secure {
+    top: 16%;
+    right: 0;
+  }
+
+  .welcome-float--data {
+    bottom: 24%;
+    left: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .welcome-logo {
+    width: min(240px, 100%);
+  }
+
+  .welcome-actions {
+    align-items: stretch;
+  }
+
+  .welcome-cta {
+    width: 100%;
+  }
+
+  .welcome-access-note {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .welcome-float {
+    display: none;
+  }
+
+  .welcome-plate {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .welcome-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .locker-grid {
+    gap: 4px;
+  }
+
+  .welcome-features {
+    gap: 9px 14px;
+  }
+
+  .welcome-features li {
+    font-size: var(--text-xs);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-copy,
+  .welcome-visual,
+  .welcome-float {
+    animation: none !important;
+  }
+}

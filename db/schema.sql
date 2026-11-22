@@ -1,7 +1,7 @@
 -- Lockers Hotel · MySQL 8 / MariaDB 10.4+
 -- Crea un esquema propio sin borrar otros datos.
-CREATE DATABASE IF NOT EXISTS hotel_lockers CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE hotel_lockers;
+CREATE DATABASE IF NOT EXISTS sirenis_locker_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE sirenis_locker_db;
 SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(60) NOT NULL UNIQUE,
   display_name VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('administrador', 'operador') NOT NULL DEFAULT 'administrador',
+  role ENUM('administrador', 'operador') NOT NULL DEFAULT 'operador',
   last_login_at DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS lockers (
 CREATE TABLE IF NOT EXISTS movements (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   action_name VARCHAR(40) NOT NULL,
+  -- Texto libre a propósito: un traslado guarda "origen → destino".
+  -- Por eso no lleva FOREIGN KEY a lockers(id).
   locker_id VARCHAR(50) NOT NULL,
   person_name VARCHAR(160) NULL,
   actor_id INT UNSIGNED NOT NULL,

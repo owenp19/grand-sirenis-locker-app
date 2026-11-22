@@ -1,0 +1,280 @@
+/* ==========================================================================
+   Grand Sirenis Locker App · Design tokens y base global
+   Orden de carga: theme.css → app.css / auth.css → components.css
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('../fonts/roboto-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('../fonts/roboto-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Marca y superficies (compatibilidad con estilos existentes) */
+  --navy: #152b41;
+  --navy-soft: #213b53;
+  --teal: #0b9b85;
+  --teal-hover: #087c6c;
+  --ink: #1c3348;
+  --body: #4f6375;
+  --muted: #8192a1;
+  --border: #e4ebf0;
+  --canvas: #f5f8fa;
+  --white: #fff;
+  --soft-teal: #e5f6f0;
+  --blue: #507bb2;
+  --soft-blue: #e9f0f9;
+  --amber: #ce963c;
+  --soft-amber: #fff4df;
+  --red: #c35466;
+  --soft-red: #fcebf0;
+
+  /* Colores de marca Grand Sirenis Locker App */
+  --brand-gold: #A5832E;
+  --brand-gold-light: #B9A867;
+  --brand-secondary: #BF8768;
+  --brand-sand: #E7DFC9;
+  --brand-taupe: #5E584E;
+
+  /* Tokens primarios derivados de la marca.
+     El oro institucional (#A5832E) queda para detalles decorativos;
+     las acciones usan el oro profundo para garantizar contraste AA. */
+  --color-primary: #8f6f28;
+  --color-primary-soft: var(--brand-gold-light);
+  --color-secondary: var(--brand-secondary);
+
+  /* Tokens semánticos */
+  --color-brand: var(--teal);
+  --color-brand-strong: var(--teal-hover);
+  --color-brand-soft: var(--soft-teal);
+  --color-on-brand: #fff;
+  --color-text: var(--ink);
+  --color-text-secondary: var(--body);
+  --color-text-muted: var(--muted);
+  --color-border: var(--border);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--white);
+  --color-surface-muted: #f9fbfc;
+  --color-success: var(--teal);
+  --color-success-soft: var(--soft-teal);
+  --color-warning: var(--amber);
+  --color-warning-soft: var(--soft-amber);
+  --color-danger: var(--red);
+  --color-danger-soft: var(--soft-red);
+  --color-info: var(--blue);
+  --color-info-soft: var(--soft-blue);
+
+  /* Superficies cálidas del área operativa (coherentes con Welcome/Auth) */
+  --color-canvas-warm: #f6f1e6;
+  --color-surface-warm: #fffdf8;
+  --color-ink-warm: #2b2620;
+  --color-body-warm: #5e584e;
+  --color-muted-warm: #6b6455;
+  --color-line-warm: rgba(94, 88, 78, 0.14);
+
+  /* Estados accesibles de marca (oro) */
+  --color-primary-hover: #7a5d22;
+  --color-primary-active: #6c521e;
+  --color-primary-disabled: #C9B98E;
+  --color-on-primary: #FFFFFF;
+  --color-secondary-hover: #A86F58;
+  --color-secondary-active: #925E4E;
+  --color-secondary-disabled: #D6BEAE;
+  --color-on-secondary: #FFFFFF;
+
+  /* Fondos de estado */
+  --color-bg-primary: var(--brand-sand);
+  --color-bg-primary-soft: rgba(231, 223, 201, 0.15);
+  --color-bg-secondary: var(--brand-taupe);
+  --color-bg-success: var(--color-success-soft);
+  --color-bg-warning: var(--color-warning-soft);
+  --color-bg-danger: var(--color-danger-soft);
+  --color-bg-info: var(--color-info-soft);
+
+  /* Tipografía */
+  --font-sans: 'Roboto', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  --text-2xs: 0.625rem;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.75rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 900;
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.08em;
+
+  /* Espaciado */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 40px;
+  --space-10: 48px;
+  --space-12: 56px;
+
+  /* Bordes */
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 23px;
+  --radius-pill: 999px;
+  --btn-radius: var(--radius-pill);
+
+  /* Sombras */
+  --shadow-xs: 0 1px 2px rgba(20, 45, 66, 0.05);
+  --shadow-sm: 0 4px 14px rgba(20, 45, 66, 0.06);
+  --shadow: 0 10px 38px rgba(20, 45, 66, 0.055);
+  --shadow-md: 0 14px 40px rgba(20, 45, 66, 0.1);
+  --shadow-lg: 0 26px 90px rgba(5, 24, 38, 0.33);
+  --shadow-brand: 0 10px 24px rgba(11, 155, 133, 0.22);
+
+  /* Movimiento */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-fast: 150ms var(--ease-standard);
+  --transition-base: 200ms var(--ease-standard);
+  --transition-slow: 320ms var(--ease-standard);
+
+  /* Layout y controles */
+  --sidebar-width: 248px;
+  --sidebar-width-md: 217px;
+  --content-max: 1530px;
+  --control-height: 42px;
+  --control-height-sm: 34px;
+  --control-height-lg: 52px;
+  --focus-ring: 0 0 0 4px rgba(165, 131, 46, 0.24);
+
+  /* Bordes y foco de marca (oro) */
+  --border-primary: var(--brand-gold);
+  --border-primary-hover: var(--color-primary-hover);
+  --border-secondary: var(--brand-secondary);
+  --border-success: var(--color-success);
+  --border-warning: var(--color-warning);
+  --border-danger: var(--color-danger);
+  --border-disabled: #d4d8dc;
+
+  --focus-ring-primary: 0 0 0 4px rgba(165, 131, 46, 0.25);
+  --focus-ring-secondary: 0 0 0 4px rgba(191, 135, 104, 0.25);
+
+  --z-sidebar: 5;
+  --z-modal: 50;
+  --z-toast: 200;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-text);
+  background: var(--color-canvas);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  font-feature-settings: 'kern' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+p {
+  line-height: var(--leading-relaxed);
+}
+
+::selection {
+  background: rgba(165, 131, 46, 0.22);
+  color: var(--navy);
+}
+
+:focus-visible {
+  outline: 3px solid rgba(143, 111, 40, 0.62);
+  outline-offset: 2px;
+}
+
+/* Iconos Lucide (sprite local, heredan color y tamaño del contexto) */
+.icon {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.185em;
+  pointer-events: none;
+}
+.icon-sm {
+  width: 1em;
+  height: 1em;
+}
+.icon-lg {
+  width: 1.4em;
+  height: 1.4em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

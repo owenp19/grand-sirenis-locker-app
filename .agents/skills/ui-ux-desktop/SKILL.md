@@ -3,8 +3,8 @@
 **Nombre:** UI/UX Desktop Engineer  
 **Ubicación:** `.agents/skills/ui-ux-desktop/SKILL.md`  
 **Procedencia:** Skill personalizado creado para Grand Sirenis Locker App  
-**Estado:** Instalado y configurado (Fase 2)  
-**Versión:** 1.0.0
+**Estado:** Instalado, configurado y ampliado con el Design System global (Fase 5.1)  
+**Versión:** 1.1.0
 
 ---
 
@@ -47,7 +47,7 @@ Este skill se activa cuando el usuario solicita revisar, diseñar o modificar pa
 ## Procedimientos de trabajo
 
 1. **Comprender el flujo real:** antes de proponer cambios, analizar pantallas existentes y el flujo de trabajo del usuario (qué hace, en qué orden, con qué datos).
-2. **Revisar lo existente:** inspeccionar `public/assets/css/app.css`, `public/assets/css/auth.css`, `public/index.php`, `public/login.php`, `public/register.php` y `public/assets/js/app.js` para no duplicar estilos ni comportamientos.
+2. **Revisar lo existente:** inspeccionar `public/assets/css/theme.css` (tokens), `components.css` (componentes globales), `app.css`/`auth.css` (layout), `public/index.php`, `public/login.php`, `public/register.php` y `public/assets/js/app.js` para no duplicar estilos ni comportamientos.
 3. **Investigar referencias externas** solo cuando resulte útil y exista acceso a Internet; nunca copiar productos ajenos.
 4. **Proponer cambios pequeños y verificables:** modificar un componente o pantalla a la vez.
 5. **Validar con Playwright:** toda modificación visual significativa debe revisarse mediante pruebas end-to-end en Chromium (capturas de pantalla, navegación, resoluciones).
@@ -56,11 +56,28 @@ Este skill se activa cuando el usuario solicita revisar, diseñar o modificar pa
 
 ---
 
+## Recursos visuales, licencias y procedencia
+
+Antes de incorporar cualquier tipografía, icono, imagen, ilustración o elemento 3D:
+
+1. **Verificar la licencia:** debe ser original, CC0 o permitir expresamente uso comercial. Se prefieren licencias sin atribución obligatoria.
+2. **Rechazar recursos** premium, con marca de agua, capturados de terceros o de licencia desconocida. Ante la duda, no se incorpora.
+3. **Alojar localmente:** sin CDN ni peticiones externas en tiempo de ejecución.
+4. **Optimizar el formato:** SVG para iconos, WOFF2 para tipografía, WebP/AVIF para fotografía; evitar modelos 3D pesados.
+5. **Registrar procedencia y licencia** en `docs/ASSET_LICENSES.md` (URL, autor, versión, fecha de verificación, archivos).
+6. **Iconos:** usar Lucide mediante el sprite local. Añadir el nombre del icono a `scripts/build-icons.js` y regenerar con `npm run icons:build`; no cargar iconos que no se usen ni pegar SVG sueltos en el HTML.
+7. **Tipografía:** Roboto variable local (`public/assets/fonts/`), con `font-display: swap`; no añadir importaciones de Google Fonts.
+8. **Comprobar el resultado** con Playwright: recurso con estado 200, sin errores de consola y sin regresiones visuales.
+
+---
+
 ## Reglas de calidad
 
 - No generar CSS duplicado.
 - No crear múltiples reglas que hagan lo mismo.
-- Priorizar variables CSS existentes (`--navy`, `--teal`, `--ink`, etc.) antes de crear nuevos valores.
+- Priorizar los tokens de `theme.css` (`--color-*`, `--text-*`, `--space-*`, `--radius-*`, `--shadow-*`, `--transition-*`) antes de crear nuevos valores.
+- Usar las clases de `components.css` (`.btn`, `.btn-*`, `.pill`, `.panel`, `.empty`, `.skeleton-*`, `.tone-*`, `.icon`) antes de escribir CSS específico de página.
+- No añadir `style="..."` en HTML generado; preferir clases o variables CSS.
 - Separar estructura (HTML), presentación (CSS) y comportamiento (JS).
 - Diseñar desktop-first; las media queries solo para adaptar, no para reescribir.
 - Garantizar contraste mínimo WCAG AA (4.5:1 texto normal, 3:1 texto grande).
@@ -72,14 +89,18 @@ Este skill se activa cuando el usuario solicita revisar, diseñar o modificar pa
 
 ## Recursos de referencia
 
-- `public/assets/css/app.css` — tokens y estilos vigentes.
+- `public/assets/css/theme.css` — tokens del Design System, `@font-face` de Roboto, base tipográfica y utilidades globales.
+- `public/assets/css/components.css` — capa de componentes globales (botones, inputs, tablas, tarjetas, modales, badges, alertas, estados vacíos, skeletons).
+- `public/assets/css/app.css` — layout y estilos del dashboard.
 - `public/assets/css/auth.css` — estilos de autenticación.
+- `public/assets/icons/lucide-sprite.svg` — sprite generado; fuente: `scripts/build-icons.js`.
 - `public/index.php`, `public/login.php`, `public/register.php` — pantallas existentes.
-- `public/assets/js/app.js` — comportamiento de la UI (modales, tablas, filtros).
+- `public/assets/js/app.js` — comportamiento de la UI (modales, tablas, filtros) y helper `icon()`.
+- `docs/ASSET_LICENSES.md` — registro de licencias y procedencia.
 - `docs/DIAGNOSTICO.md` — diagnóstico técnico de la Fase 1.
 
 ---
 
 ## Scripts auxiliares
 
-Ninguno requerido en esta fase.
+- `npm run icons:build` — regenera el sprite Lucide con los iconos declarados en `scripts/build-icons.js`.

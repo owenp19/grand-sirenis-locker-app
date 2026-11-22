@@ -46,8 +46,8 @@ $env = static function (string $key, string $default = ''): string {
 return [
     'db_host' => $env('DB_HOST', '127.0.0.1'),
     'db_port' => (int) $env('DB_PORT', '3306'),
-    'db_name' => $env('DB_NAME', 'hotel_lockers'),
-    'db_user' => $env('DB_USER', 'lockerflow_app'),
+    'db_name' => $env('DB_NAME', 'sirenis_locker_db'),
+    'db_user' => $env('DB_USER', 'owenpusey'),
     'db_password' => $env('DB_PASSWORD', ''),
     'time_zone' => $env('TIME_ZONE', 'America/Bogota'),
 ];

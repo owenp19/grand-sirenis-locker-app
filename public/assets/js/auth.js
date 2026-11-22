@@ -1,4 +1,4 @@
-/* LockerFlow · Interacciones de formularios sin dependencias ni peticiones externas. */
+/* Grand Sirenis Locker App · Interacciones de formularios sin dependencias ni peticiones externas. */
 (() => {
   'use strict';
   document.querySelectorAll('[data-toggle-password]').forEach((button) => {
@@ -20,7 +20,8 @@
       const typed = confirmation.value.length > 0;
       const same = password.value === confirmation.value;
       feedback.textContent = typed ? (same ? '✓ Las contraseñas coinciden' : 'Las contraseñas no coinciden') : '';
-      feedback.style.color = typed ? (same ? 'var(--teal)' : 'var(--red)') : '';
+      feedback.classList.toggle('is-valid', typed && same);
+      feedback.classList.toggle('is-invalid', typed && !same);
       confirmation.setCustomValidity(typed && !same ? 'Las contraseñas no coinciden' : '');
     };
     password.addEventListener('input', compare);

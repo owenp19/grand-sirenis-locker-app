@@ -68,7 +68,7 @@ $envFile = Join-Path $root '.env'
 $dotenv = Read-DotEnv $envFile
 $dbHost = '127.0.0.1'
 $dbPort = 3306
-$dbName = 'hotel_lockers'
+$dbName = 'sirenis_locker_db'
 if ($dotenv.ContainsKey('DB_HOST') -and $dotenv['DB_HOST']) { $dbHost = $dotenv['DB_HOST'] }
 if ($dotenv.ContainsKey('DB_PORT') -and $dotenv['DB_PORT']) { $dbPort = [int]$dotenv['DB_PORT'] }
 if ($dotenv.ContainsKey('DB_NAME') -and $dotenv['DB_NAME']) { $dbName = $dotenv['DB_NAME'] }
@@ -94,11 +94,11 @@ $process = Start-Process -FilePath $phpPath `
     -ArgumentList @('-S', "${BindAddress}:${Port}", '-t', $public) `
     -WorkingDirectory $root -PassThru -WindowStyle Hidden
 Write-Host "PID de PHP: $($process.Id)" -ForegroundColor Green
-Write-Host "Abre: http://${BindAddress}:${Port}/login.php" -ForegroundColor Cyan
+Write-Host "Abre: http://${BindAddress}:${Port}/ (Welcome Page)" -ForegroundColor Cyan
 Write-Host "Presiona Ctrl+C para detener el servidor." -ForegroundColor Gray
 
 if ($LaunchBrowser) {
-    Start-Process "http://${BindAddress}:${Port}/login.php"
+    Start-Process "http://${BindAddress}:${Port}/"
 }
 
 try {

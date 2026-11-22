@@ -1,0 +1,249 @@
+/* ==========================================================================
+   Grand Sirenis Locker App · Movimiento, precarga y carga diferida
+   Orden de carga: ... → components.css → motion.css
+   Sin dependencias, sin estilos inline y con fallback sin JavaScript.
+   ========================================================================== */
+
+/* Precarga ------------------------------------------------------------------ */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(40rem 28rem at 82% 0%, rgba(191, 135, 104, 0.22), transparent 62%),
+    radial-gradient(34rem 26rem at 6% 104%, rgba(185, 168, 103, 0.28), transparent 64%),
+    linear-gradient(142deg, #FBF7EE 0%, #F4EDDC 44%, #E7DFC9 100%);
+  transition: opacity 450ms var(--ease-standard), visibility 450ms var(--ease-standard);
+}
+
+.boot-inner {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+}
+
+.boot-logo {
+  display: block;
+  width: min(232px, 62vw);
+  height: auto;
+}
+
+.boot-bar {
+  position: relative;
+  width: 152px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: rgba(94, 88, 78, 0.16);
+}
+
+.boot-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 46%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--brand-gold), transparent);
+  animation: boot-sweep 1150ms ease-in-out infinite;
+}
+
+.boot-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brand-taupe);
+}
+
+html.is-booting {
+  overflow: hidden;
+}
+
+html.is-ready .boot {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Si JavaScript no carga, la capa se retira sola y la página queda usable. */
+html:not(.js) .boot {
+  animation: boot-failsafe 600ms ease 4s forwards;
+}
+
+@keyframes boot-sweep {
+  from { transform: translateX(-115%); }
+  to { transform: translateX(330%); }
+}
+
+@keyframes boot-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* Revelado progresivo ------------------------------------------------------- */
+html.motion [data-reveal] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 560ms var(--ease-standard),
+    transform 560ms var(--ease-standard);
+}
+
+html.motion [data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+html.motion .welcome-features li[data-reveal]:nth-child(2),
+html.motion .auth-field[data-reveal]:nth-child(2) {
+  transition-delay: 70ms;
+}
+
+html.motion .welcome-features li[data-reveal]:nth-child(3),
+html.motion .auth-field[data-reveal]:nth-child(3) {
+  transition-delay: 140ms;
+}
+
+html.motion .welcome-features li[data-reveal]:nth-child(4),
+html.motion .auth-field[data-reveal]:nth-child(4) {
+  transition-delay: 210ms;
+}
+
+html.motion .auth-field[data-reveal]:nth-child(5) {
+  transition-delay: 280ms;
+}
+
+html.motion .auth-field[data-reveal]:nth-child(6) {
+  transition-delay: 350ms;
+}
+
+/* Avisos con entrada suave -------------------------------------------------- */
+.auth-alert {
+  animation: motion-alert-in 380ms var(--ease-standard) both;
+}
+
+@keyframes motion-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Brillo de los botones principales ----------------------------------------- */
+.welcome-cta,
+.auth-submit {
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-cta::before,
+.auth-submit::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 36%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-180%) skewX(-18deg);
+  transition: transform 650ms var(--ease-standard);
+}
+
+.welcome-cta:hover::before,
+.auth-submit:hover::before {
+  transform: translateX(330%) skewX(-18deg);
+}
+
+/* Detalles con hover real (no en pantallas táctiles) ------------------------ */
+@media (hover: hover) and (pointer: fine) {
+  .welcome-plate,
+  .auth-plate {
+    transition: transform 480ms var(--ease-standard), box-shadow 480ms var(--ease-standard);
+  }
+
+  .welcome-plate:hover,
+  .auth-plate:hover {
+    transform: rotate(0deg) translateY(-3px);
+    box-shadow: 0 46px 88px -42px rgba(43, 38, 32, 0.46), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .auth-brand-logo,
+  .welcome-logo {
+    transition: transform 380ms var(--ease-standard);
+  }
+
+  .auth-brand:hover .auth-brand-logo,
+  .welcome-logo:hover {
+    transform: translateY(-2px) scale(1.012);
+  }
+
+  .auth-v2 .auth-panel {
+    transition: box-shadow 420ms var(--ease-standard), border-color 420ms var(--ease-standard);
+  }
+
+  .auth-v2 .auth-panel:hover {
+    border-color: rgba(165, 131, 46, 0.3);
+    box-shadow: 0 46px 96px -44px rgba(43, 38, 32, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .feature-icon {
+    transition: transform 320ms var(--ease-standard), background 320ms var(--ease-standard);
+  }
+
+  .welcome-features li:hover .feature-icon {
+    transform: translateY(-2px);
+    background: rgba(165, 131, 46, 0.16);
+  }
+}
+
+/* Deriva ambiental de los círculos decorativos ------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+  .welcome-stage::before {
+    animation: motion-orbit 26s ease-in-out infinite alternate;
+  }
+
+  .welcome-stage::after {
+    animation: motion-orbit 32s ease-in-out -8s infinite alternate-reverse;
+  }
+}
+
+@keyframes motion-orbit {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-18px, 14px, 0); }
+}
+
+/* Sin movimiento ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .boot {
+    transition-duration: 0.001ms;
+  }
+
+  .boot-bar::after,
+  .welcome-stage::before,
+  .welcome-stage::after,
+  .auth-alert {
+    animation: none;
+  }
+
+  html.motion [data-reveal],
+  html.motion [data-reveal].is-revealed {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .welcome-cta::before,
+  .auth-submit::before {
+    display: none;
+  }
+}

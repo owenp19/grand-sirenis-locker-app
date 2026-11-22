@@ -9,9 +9,9 @@
 
 ## 1. Identidad del proyecto
 
-- Nombre público del README: **LockerFlow · PWA local para gestionar lockers del hotel**
+- Nombre público del README: **Grand Sirenis Locker App · PWA local para gestionar lockers del hotel**
 - Nombre oficial del proyecto (instrucción): **Grand Sirenis Locker App**
-- Carpeta raíz: `C:\Users\Owen\Documents\Sueños\software-apps\Grand-Sirenis-Loker-app`
+- Carpeta raíz: `C:\Users\Owen\Documents\Sueños\software-apps\Grand-Sirenis-Locker-app` (corregido de `Grand-Sirenis-Loker-app`)
 - Descripción: aplicación local PHP + MySQL para gestión de lockers de colaboradores de hotel, con dashboard, inventario, asignaciones, movimientos, roles de usuario y PWA instalable.
 
 ---
@@ -37,19 +37,19 @@
 | `README.md` | Documentación de instalación y uso (referencia a carpeta `Lockers_Hotel_PWA`) |
 | `iniciar-servidor.bat` | Script Windows para iniciar PHP integrado en puerto 8000 |
 | `.htaccess` | Deniega descarga de `.sql`, `.md`, `.ini`, `.env`, `.bak`, `.zip` (solo aplica con Apache) |
-| `.vscode/tasks.json` | Tarea VS Code "LockerFlow: iniciar PHP" (`Ctrl + Shift + B`) |
+| `.vscode/tasks.json` | Tarea VS Code "Grand Sirenis Locker: iniciar PHP" (`Ctrl + Shift + B`) |
 
 ### Base de datos (`db/`)
 | Archivo | Función |
 |---|---|
-| `schema.sql` | Crea BD `hotel_lockers` y tablas `users`, `lockers`, `movements` |
+| `schema.sql` | Crea BD `sirenis_locker_db` y tablas `users`, `lockers`, `movements` |
 | `seed.sql` | 156 lockers originales importados de Excel (valores codificados en hex `CONVERT(0x...)`) |
 | `migrations/001_roles_usuarios.sql` | Añade columna `role` a `users` sin borrar datos |
 
 ### Código interno (`private/`)
 | Archivo | Función |
 |---|---|
-| `config.php` | Configuración de conexión MySQL (host `127.0.0.1`, puerto `3306`, BD `hotel_lockers`, usuario `root`, contraseña vacía, zona `America/Bogota`) |
+| `config.php` | Configuración de conexión MySQL: lee `.env`/`DB_NAME=sirenis_locker_db`, `DB_USER=owenpusey`, puerto `3306`, zona `America/Bogota` |
 | `bootstrap.php` | Inicia sesión segura, constante de conexión PDO (consultas preparadas, `EMULATE_PREPARES => false`), helpers `csrf_token`, `current_user`, `require_login`, `respond`, `fail`, `field`, `valid_date`, `safe_user_agent`, cabeceras de seguridad (CSP, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cache-Control`) |
 
 ### Código público (`public/`)
@@ -61,7 +61,7 @@
 | `logout.php` | Cierre de sesión vía POST con validación CSRF |
 | `setup.php` | Redirección (302) a `register.php` |
 | `api.php` | Endpoint único CRUD + auditoría + exportaciones (recurso `bootstrap`, `export`, acciones `assign`, `release`, `transfer`, `status`, `edit`, `reconcile`) con transacciones y `FOR UPDATE` |
-| `manifest.webmanifest` | PWA: nombre `LockerFlow | Gestión Hotelera`, `short_name` `LockerFlow`, íconos 192/512, `display: standalone` |
+| `manifest.webmanifest` | PWA: nombre `Grand Sirenis Locker App`, `short_name` `Sirenis Locker`, íconos 192/512, `display: standalone` |
 | `sw.js` | Service Worker `lockerflow-shell-v2`: caché estática de assets; excluye API y rutas de autenticación |
 | `offline.html` | Página de aviso sin conexión |
 | `icons/icon.svg`, `icon-192.png`, `icon-512.png` | Íconos PWA |
@@ -83,7 +83,7 @@
 
 ## 5. Conexión PHP ↔ MySQL
 
-- `private/bootstrap.php` → función `db()`: PDO singleton, DSN `mysql:host=127.0.0.1;port=3306;dbname=hotel_lockers;charset=utf8mb4`, `PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION`, `PDO::ATTR_EMULATE_PREPARES => false`, `SET time_zone = '-05:00'`.
+- `private/bootstrap.php` → función `db()`: PDO singleton, DSN `mysql:host=127.0.0.1;port=3306;dbname=sirenis_locker_db;charset=utf8mb4` (lee de `.env` a través de `config.php`), `PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION`, `PDO::ATTR_EMULATE_PREPARES => false`, `SET time_zone = '-05:00'`.
 - Todas las consultas en `api.php` usan sentencias preparadas (`prepare`/`execute`).
 - `config.php` contiene credenciales en texto plano (`root` / contraseña vacía) — riesgo si se expone la carpeta `private/`.
 
@@ -127,13 +127,13 @@
 
 | Elemento | Estado |
 |---|---|
-| `manifest.webmanifest` | Presente. Nombre `LockerFlow | Gestión Hotelera`, `short_name` `LockerFlow`, `display: standalone`, íconos 192/512, `lang: es-CO` |
+| `manifest.webmanifest` | Presente. Nombre `Grand Sirenis Locker App`, `short_name` `Sirenis Locker`, `display: standalone`, íconos 192/512, `lang: es-CO`, colores de marca integrados |
 | `sw.js` | Presente (v2). Cachea solo assets estáticos; excluye `/api.php`, `/login.php`, `/register.php`, `/setup.php`, `/logout.php`; navegación con `no-store` y fallback a `offline.html` |
 | `offline.html` | Presente |
 | Íconos | `icon.svg`, `icon-192.png`, `icon-512.png` |
 | Comportamiento | No sincronización offline; sin base de datos paralela; datos siempre desde PHP/MySQL |
 
-**Nota:** el nombre público deseado es **Grand Sirenis Locker App**; el manifest aún dice `LockerFlow`.
+**Nota:** el nombre público **Grand Sirenis Locker App** ya está configurado en el manifest (actualizado 2026-11-18).
 
 ---
 
@@ -195,7 +195,7 @@ No se detectaron librerías de CSS/JS externas (sin CDN, sin frameworks).
 5. **Crear skills** en `.agents/skills/` para UI/UX, frontend, PHP backend, MySQL, ciberseguridad, Playwright, clean code, automatización Windows y memoria persistente.
 6. **Configurar Playwright** para pruebas E2E sobre Chromium en localhost:8000.
 7. **Crear scripts de automatización Windows** (`scripts/start-dev.ps1`, `check-environment.ps1`, `run-tests.ps1`, `backup-database.ps1`).
-8. **Ajustar nombre PWA** a "Grand Sirenis Locker App" en `manifest.webmanifest` (Fase 6).
+8. **Nombre PWA** ajustado a "Grand Sirenis Locker App" en `manifest.webmanifest` (completado 2026-11-18).
 9. **No ejecutar operaciones destructivas** en la base de datos real sin respaldo (`db/schema.sql` + `db/seed.sql` solo en instalación nueva).
 
 ---

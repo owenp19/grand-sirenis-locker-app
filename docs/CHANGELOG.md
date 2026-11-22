@@ -1,5 +1,70 @@
 # Changelog — Grand Sirenis Locker App
 
+## 2026-11-21 — Cambio de base de datos y usuario de aplicación
+- **Base de datos:** renombrada de `hotel_lockers` a `sirenis_locker_db` (utf8mb4, InnoDB). Datos copiados: 156 lockers, 0 usuarios, 0 movimientos.
+- **Usuario de aplicación:** creado `owenpusey`@`%` con contraseña `Sirenis2026!App` y privilegios mínimos (`SELECT, INSERT, UPDATE, DELETE` sobre `sirenis_locker_db.*`). Se retira el uso de `lockerflow_app` y `root` en la app.
+- **Configuración:** `.env` y `.env.example` actualizados (`DB_NAME=sirenis_locker_db`, `DB_USER=owenpusey`, `DB_PASSWORD=Sirenis2026!App`). `private/config.php` lee el nombre por defecto `sirenis_locker_db` y el usuario por defecto `owenpusey`.
+- **Esquema y migraciones:** `db/schema.sql` y todas las migraciones (`001` a `006`) apuntan a `sirenis_locker_db`. El rol por defecto de `users.role` es ahora `operador` (principio de menor privilegio).
+- **Scripts de PowerShell:** `start-dev.ps1`, `setup-test-db.ps1`, `backup-database.ps1`, `reset-admin-user.php` y `inspect-users.php` actualizados para usar `sirenis_locker_db` y `owenpusey`.
+- **Pruebas:** las 24 pruebas E2E pasan contra `hotel_lockers_test` (recreada desde `sirenis_locker_db`) con el usuario `owenpusey`. Se corrigió una corrupción de codificación en los valores ENUM `status` (`Dañado`, `Revisión`) provocada por `mysqldump` en Windows; se restauraron los valores correctos con PHP/PDO (UTF-8).
+- **Verificación:** `php -l` OK en todos los PHP modificados; `node --check` OK en JS.
+
+## 2026-11-20 — UI/UX Fase 3: Welcome Hero (footer y fin del espacio artificial)
+- **Espacio vertical:** el exceso de 282 px bajo el pie lo generaba `.welcome-stage::after` (`bottom: -270px`, altura 420 px) más la deriva de `motion-orbit`, que sumaban scroll real. El stage ahora recorta solo los anillos decorativos con `overflow-y: clip` (sin ocultar contenido real).
+- **Hero a pantalla completa:** `min-height` con `100svh`/`100dvh` en página y stage; footer compacto integrado en el hero. En escritorio el scroll es 0; en tablet/móvil solo aparece cuando el contenido lo exige.
+- **Footer:** «© 2026 Grand Sirenis Locker App» y «Hecho con ♥ por Owen Pusey.» con icono Lucide `heart` (nuevo en el sprite). Se retira `data-reveal` del pie para garantizar su visibilidad (el observador con `-6%` y `0.08` no lo revelaba al quedar anclado al borde inferior).
+- **Generador de iconos:** `scripts/build-icons.js` añade `heart` y lee `lucide-static/sprite.svg` (la versión instalada ya no trae `icons/`), manteniendo compatibilidad con ambos formatos. Sprite final: 33 iconos.
+- **Pruebas:** Playwright/Chromium en 1920×1080, 1440×900, 1366×768, 768×1024, 390×844 y 390×667: `overflowY` 0 en escritorio, `scrollHeight - stage.bottom` = 0 en todos, `overflowX` 0, footer `opacity: 1` en carga y tras scroll, corazón presente, CTA visible y navega a `login.php`, 0 errores de consola. `php -l` y `node --check` OK. Sin cambios en Login, Register ni Dashboard.
+
+## 2026-11-18 — Arranque en un comando, precarga, carga diferida y animaciones
+- **Páginas viejas:** causa identificada en `public/sw.js` (cache-first con caché `v5`). Ahora `grand-sirenis-locker-shell-v6` con **red primero** para CSS/JS del shell y respaldo en caché sin conexión.
+- **`iniciar-servidor.bat`:** arranque único; detecta PHP de XAMPP, evita duplicar el servidor en el puerto 8000, inicia MySQL si 3306 está cerrado y abre `/` (Welcome). `scripts/start-dev.ps1` y `npm start` también abren `/`.
+- **Movimiento:** nuevos `public/assets/css/motion.css` y `public/assets/js/motion.js` con capa de precarga, revelado `[data-reveal]` por `IntersectionObserver`, carga diferida de imágenes/fondos, actualización del service worker, brillo de botones, elevación al pasar el cursor y deriva ambiental. Respeta `prefers-reduced-motion`.
+- **Pantallas:** `welcome.php`, `login.php`, `register.php` e `index.php` integran precarga, estilos/script de movimiento y atributos de revelado. Sin cambios en autenticación, roles, CSRF, endpoints ni CSP.
+- **Corrección:** la transición del revelado se declara en el estado base; declararla en `.is-revealed` dejaba transiciones pendientes en Chrome 157 y podía ocultar contenido.
+- **Pruebas:** Welcome 102/102, Login+Register 233/233, identidad estática 64/64, `php -l` 9/9, `node --check` OK. Service worker v6 verificado por CDP: controla la página y cachea los 17 recursos.
+
+## 2026-11-18 — UI/UX Fase 2 (Login y Register) y ajuste del Welcome
+- **Login:** `public/login.php` rediseñado con el lenguaje arena + oro de la portada. Tarjeta blanca flotante, placa de inventario en CSS, chips informativos, enlace "Volver a la portada" y logo wordmark de 720 px. Formulario, CSRF, alertas y `auth.js` intactos.
+- **Register:** `public/register.php` con la misma composición y placa de equipo/roles. Se conservan el flujo de primer administrador, los roles, el estado restringido y todos los ids de campos.
+- **Estilos:** `public/assets/css/auth.css` reescrito en secciones legibles (~900 líneas): tokens `--a-*`, foco dorado, botón `#8F6F28` con texto blanco (4,7:1), alertas, estado restringido, responsive ≤1080/≤900/≤520 px y ajuste para alturas ≤860 px. Sin dependencias nuevas.
+- **Welcome:** hero sin cambios; se ancló el pie al borde inferior y el hero se centra en el espacio disponible, eliminando la banda vacía bajo el pie.
+- **Rendimiento:** precarga de Roboto y logo, sin peticiones externas ni imágenes nuevas (ninguna licencia adicional).
+- **Pruebas:** nuevo `tests/manual/auth-verify.js` → 209/209 en Chrome headless (CDP) en 4 tamaños, con interacciones reales de contraseña, coincidencia, rechazo CSRF y navegación. Welcome 90/90 revalidado; identidad estática 49/49; `php -l` OK.
+
+## 2026-11-18 — UI/UX Fase 1 (Welcome Page)
+- **Portada pública:** nueva `public/welcome.php`, primera pantalla sin sesión. Logo oficial, título "Bienvenido a Grand Sirenis Locker App", descripción, CTA "Iniciar sesión" hacia `login.php` y aviso "Acceso exclusivo para personal autorizado."
+- **Estilos:** nueva `public/assets/css/welcome.css` (arena + oro, tokens de `theme.css`, `box-sizing` aislado, `prefers-reduced-motion`). Sin JavaScript y sin recursos externos.
+- **Ilustración:** panel de 32 lockers construido en CSS; no se usaron modelos 3D ni recursos de terceros.
+- **Navegación:** `index.php` redirige a `welcome.php` cuando no hay sesión; `welcome.php` redirige a `index.php` con sesión activa. `manifest.start_url` → `./welcome.php`.
+- **Rendimiento:** logo optimizado a 720 px (`grand-sirenis-locker-app-logo-black-720.png`, 25 KB frente a 221 KB del original) con preload de fuente y logo; sin lazy-load porque no hay imágenes fuera de pantalla.
+- **PWA:** `sw.js` pasa a caché `grand-sirenis-locker-shell-v5` e incluye `welcome.css` y el logo optimizado.
+- **Corrección:** faltaba un `)` en `issuesPage()` de `app.js`; impedía parsear todo el archivo desde la Fase 5.1.
+- **Pruebas:** 90/90 comprobaciones reales en Chrome headless (CDP) en 1920×1080, 1366×768, 768×1024 y 390×844; 47/47 verificación estática; `php -l` 9/9. Playwright sigue sin poder ejecutarse.
+
+## 2026-11-18 — Corrección de nombre e identidad visual
+- **Nombre del directorio:** corregido de `Grand-Sirenis-Loker-app` a `Grand-Sirenis-Locker-app`.
+- **package.json / package-lock.json:** nombre del paquete actualizado a `grand-sirenis-locker-app`.
+- **.vscode/tasks.json:** tarea VS Code renombrada a "Grand Sirenis Locker: iniciar PHP".
+- **manifest.webmanifest:** nombre actualizado a "Grand Sirenis Locker App", `short_name` a "Sirenis Locker", colores de marca (`background_color: #E7DFC9`, `theme_color: #A5832E`).
+- **sw.js:** caché renombrada a `grand-sirenis-locker-shell-v4` (hoy v5).
+- **theme.css:** agregados tokens de marca Grand Sirenis (`--brand-gold`, `--brand-gold-light`, `--brand-secondary`, `--brand-sand`, `--brand-taupe`, `--color-primary`, `--color-primary-soft`, `--color-secondary`) y variantes accesibles de estados (hover, active, disabled, focus, fondos de éxito/advertencia/error).
+- **Imágenes renombradas en `public/assets/image/`:** `grand-sirenis-locker-app-favicon.png`, `grand-sirenis-locker-app-logo-black.png`, `grand-sirenis-locker-app-logo-white.png`, `grand-sirenis-locker-app-icon-windows.png` (originales conservados para recuperación). Todos los PNG con transparencia real (RGBA) verificada.
+- **Favicon actualizado** a PNG en `index.php`, `login.php`, `register.php`, `offline.html`.
+- **Logos integrados:** logo negro en encabezados de login y register (fondos claros). Nombre de marca visible cambiado de "LockerFlow" a "Grand Sirenis Locker App" en pantallas.
+- **Comentarios JS/CSS actualizados** de "LockerFlow" a "Grand Sirenis Locker App".
+- **Logo dorado y símbolo dorado:** sin imagen disponible (no se inventaron recursos inexistentes).
+
+## 2026-11-17 — Fase 5.1 (Design System global)
+- **Tipografía:** Roboto variable local (`public/assets/fonts/roboto-latin.woff2`, `roboto-latin-ext.woff2`), `font-display: swap`, pesos 100–900. Sin Google Fonts ni CDN.
+- **Tokens:** nuevo `public/assets/css/theme.css` con color, tipografía, fondos, bordes, sombras, espaciados, radios, estados, animaciones, layout y utilidades (`.icon`, `.sr-only`, reduced motion).
+- **Componentes:** nuevo `public/assets/css/components.css` que normaliza botones, inputs, tablas, tarjetas, modales, badges, menús, alertas, estados vacíos, skeletons y tonos semánticos. Orden de carga: `theme.css` → `app.css`/`auth.css` → `components.css`.
+- **Iconos:** Lucide `lucide-static@1.74.0` (ISC) como sprite local generado por `scripts/build-icons.js` (`npm run icons:build`, 32 iconos, ~6,5 KB). Helper `icon()` en `app.js`; iconos accesibles y con color del tema.
+- **Pantallas:** `index.php`, `login.php`, `register.php` y `offline.html` migrados a tokens e iconos; skeleton del dashboard; `sw.js` v3 cachea los nuevos assets.
+- **Menos estilos inline:** `app.js` de 9 a 6 atributos `style` (solo anchos dinámicos); colores de tarjetas/leyendas a clases; `auth.js` usa `.is-valid`/`.is-invalid`.
+- **Licencias:** nuevo `docs/ASSET_LICENSES.md` (Roboto Apache 2.0, Lucide ISC) y política de recursos visuales en `AGENTS.md` y `.agents/skills/ui-ux-desktop/SKILL.md`.
+- **Pruebas:** Playwright 14/14, `node --check` 2/2, `php -l` 3/3; sin errores de consola; revisión visual en escritorio y móvil.
+
 ## 2026-11-17 — Fases 3 y 4 (integración y verificación integral)
 - **Sesión y cabeceras:** `session.use_only_cookies`, `use_trans_sid=0`, `gc_maxlifetime=14400`; `Permissions-Policy`; HSTS cuando hay HTTPS.
 - **Rate limit de login del lado servidor:** contador por usuario+IP y por IP en `private/runtime/login-throttle.json` (SHA-256 + `flock`), 8/15 min y 40/15 min; limpiar cookies no lo reinicia.
@@ -42,4 +107,4 @@
   - PWA inspeccionado: manifest, service worker, offline.html, íconos presentes. Nombre aún "LockerFlow".
 
 ## Próxima versión (pendiente)
-- `git init`, credenciales en variables de entorno, Playwright Chromium instalado, pruebas E2E ejecutadas y registradas, nombre PWA ajustado a "Grand Sirenis Locker App".
+- `git init`, credenciales en variables de entorno, Playwright Chromium instalado, pruebas E2E ejecutadas y registradas.

@@ -125,14 +125,14 @@ test('3. API sin sesión, cabeceras de seguridad y CSRF', async ({ request }) =>
 
 test('4. asignación desde la interfaz y persistencia tras recargar', async () => {
   await page.locator('.navigation [data-page="dashboard"]').click();
-  await expect(page.locator('.hero')).toBeVisible();
+  await expect(page.locator('.stats')).toBeVisible();
   const data = (await bootstrap()).data;
   const locker = freeLocker(data);
   expect(locker).toBeTruthy();
   assignedLocker = locker.id;
   assignedName = `E2E Asignado ${Date.now()}`;
 
-  await page.locator('.hero [data-action="assign"]').click();
+  await page.locator('.quick-card[data-action="assign"]').click();
   await expect(page.locator('#operationForm')).toBeVisible();
   await page.selectOption('#f_locker', assignedLocker);
   await page.fill('#f_name', assignedName);
@@ -151,7 +151,7 @@ test('4. asignación desde la interfaz y persistencia tras recargar', async () =
   expect(row.name).toBe(assignedName);
   expect(after.movements.some((m) => m.type === 'Asignación' && m.locker === assignedLocker)).toBe(true);
 
-  await page.reload();
+  await page.goto('/index.php?r=' + Date.now());
   await expect(page.locator('#view h1')).toContainText('Panel de control');
   const persisted = lockerById((await bootstrap()).data, assignedLocker);
   expect(persisted.name).toBe(assignedName);
@@ -239,7 +239,7 @@ test('8. estado físico e incidencias visibles en la interfaz', async () => {
   expect(result.status).toBe(200);
   expect(lockerById((await bootstrap()).data, locker.id).status).toBe('Dañado');
   // La UI mantiene el estado en memoria: recargar para leer los movimientos creados por API.
-  await page.reload();
+  await page.goto('/index.php?r=' + Date.now());
   await expect(page.locator('#view h1')).toContainText('Panel de control');
 
   await page.locator('.navigation [data-page="issues"]').click();
@@ -263,7 +263,7 @@ test('9. XSS: un nombre malicioso se muestra escapado, nunca como HTML', async (
   });
   expect(result.status).toBe(200);
 
-  await page.reload();
+  await page.goto('/index.php?r=' + Date.now());
   await expect(page.locator('#view h1')).toContainText('Panel de control');
   await page.locator('.navigation [data-page="lockers"]').click();
   await page.evaluate(() => {
@@ -326,11 +326,11 @@ test('11. permisos: el administrador crea un operador y el operador no crea usua
 
   await page.goto('/index.php');
   await expect(page.locator('#view h1')).toContainText('Panel de control');
-  await page.locator('.sidebar form[action="logout.php"] button[type="submit"]').click();
+  await page.locator('.topbar form[action="logout.php"] button[type="submit"]').click();
   await page.waitForURL(/login\.php/);
 
   await login(page, OPERATOR_USER, OPERATOR_PASS);
-  await expect(page.locator('.user-admin-link')).toHaveCount(0);
+  await expect(page.locator('.topbar-admin')).toHaveCount(0);
 
   const forbidden = await page.goto('/register.php');
   expect(forbidden.status()).toBe(403);
@@ -352,11 +352,11 @@ test('11. permisos: el administrador crea un operador y el operador no crea usua
 
 test('12. logout invalida la sesión y protege las rutas', async () => {
   await page.goto('/index.php');
-  await page.locator('.sidebar form[action="logout.php"] button[type="submit"]').click();
+  await page.locator('.topbar form[action="logout.php"] button[type="submit"]').click();
   await page.waitForURL(/login\.php/);
 
   await page.goto('/index.php');
-  await expect(page).toHaveURL(/login\.php/);
+  await expect(page).toHaveURL(/welcome\.php/);
   const api = await bootstrap();
   expect(api.status).toBe(401);
 

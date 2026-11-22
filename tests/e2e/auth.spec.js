@@ -10,7 +10,7 @@ test.describe('Autenticación - Grand Sirenis Locker App', () => {
     await page.goto('/login.php', { waitUntil: 'domcontentloaded' });
 
     // 2. Verificar elementos esenciales del formulario
-    await expect(page.locator('h2')).toContainText('Inicia sesión');
+    await expect(page.locator('#auth-title')).toContainText('Inicia sesión');
     await expect(page.locator('input#username')).toBeVisible();
     await expect(page.locator('input#password')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
@@ -32,9 +32,9 @@ test.describe('Autenticación - Grand Sirenis Locker App', () => {
     await expect(page.locator('.sidebar')).not.toBeVisible();
   });
 
-  test('acceso sin sesion a index.php redirige a login', async ({ page }) => {
+  test('acceso sin sesion a index.php redirige a la portada', async ({ page }) => {
     await page.goto('/index.php', { waitUntil: 'domcontentloaded' });
-    // Si no hay sesion, el servidor redirige a login.php
-    await expect(page).toHaveURL(/.*\/login\.php/);
+    // Sin sesión, la aplicación muestra primero la portada pública.
+    await expect(page).toHaveURL(/.*\/welcome\.php/);
   });
 });

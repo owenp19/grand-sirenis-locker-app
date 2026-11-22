@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 <#
 .SINOPSIS
-    Crea un respaldo SQL de hotel_lockers con mysqldump (XAMPP).
+    Crea un respaldo SQL de sirenis_locker_db con mysqldump (XAMPP).
 
 .DESCRIPCIÓN
     Usa por defecto el usuario de aplicacion (.env: DB_USER) con
@@ -40,7 +40,7 @@ function Read-DotEnv([string]$Path) {
 
 $dotenv = Read-DotEnv (Join-Path $root '.env')
 if (-not $DbName) {
-    $DbName = if ($dotenv.ContainsKey('DB_NAME') -and $dotenv['DB_NAME']) { $dotenv['DB_NAME'] } else { 'hotel_lockers' }
+    $DbName = if ($dotenv.ContainsKey('DB_NAME') -and $dotenv['DB_NAME']) { $dotenv['DB_NAME'] } else { 'sirenis_locker_db' }
 }
 if (-not $DbHost) {
     $DbHost = if ($dotenv.ContainsKey('DB_HOST') -and $dotenv['DB_HOST']) { $dotenv['DB_HOST'] } else { '127.0.0.1' }
@@ -49,7 +49,7 @@ if (-not $Port) {
     $Port = if ($dotenv.ContainsKey('DB_PORT') -and $dotenv['DB_PORT']) { [int]$dotenv['DB_PORT'] } else { 3306 }
 }
 if (-not $User) {
-    $User = if ($dotenv.ContainsKey('DB_USER') -and $dotenv['DB_USER']) { $dotenv['DB_USER'] } else { 'lockerflow_app' }
+    $User = if ($dotenv.ContainsKey('DB_USER') -and $dotenv['DB_USER']) { $dotenv['DB_USER'] } else { 'owenpusey' }
 }
 if (-not $OutputDir) { $OutputDir = Join-Path $root 'storage\backups' }
 
@@ -81,7 +81,7 @@ if (-not $password -and $PromptPassword) {
 }
 
 $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
-$backupFile = Join-Path $OutputDir "hotel_lockers_$timestamp.sql"
+$backupFile = Join-Path $OutputDir "${DbName}_$timestamp.sql"
 $previousPassword = $env:MYSQL_PWD
 
 try {

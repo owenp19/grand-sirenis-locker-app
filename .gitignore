@@ -17,7 +17,7 @@ storage/
 /respaldos/
 backups/
 **/backups/
-hotel_lockers_*.sql
+sirenis_locker_db_*.sql
 lockers_respaldo_*.json
 *.bak
 *.zip
