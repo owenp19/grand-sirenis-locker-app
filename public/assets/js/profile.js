@@ -8,9 +8,21 @@
   const csrfMeta = document.querySelector('meta[name="csrf-token"]');
   const csrf = csrfMeta ? csrfMeta.content : '';
   const API = 'api.php';
+  const API_TIMEOUT = 8000;
+  const channel = ('BroadcastChannel' in window) ? new BroadcastChannel('sirenis-locker') : null;
 
   let container = null;
   let currentUser = null;
+  let nameInputEl = null;
+
+  if (channel) {
+    channel.addEventListener('message', e => {
+      const msg = e.data || {};
+      if (msg.type !== 'user' || !msg.name || !currentUser || !nameInputEl) return;
+      currentUser.name = msg.name;
+      nameInputEl.value = msg.name;
+    });
+  }
 
   function notify(msg, error = false) {
     const toast = document.getElementById('toast');
@@ -25,16 +37,21 @@
 
   async function fetchJson(resource, opts = {}) {
     const headers = { Accept: 'application/json', ...opts.headers };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_TIMEOUT);
     let res;
     try {
       res = await fetch(`${API}?resource=${encodeURIComponent(resource)}`, {
         credentials: 'same-origin',
         cache: 'no-store',
         headers,
+        signal: controller.signal,
         ...opts
       });
     } catch (_) {
       return { ok: false, error: 'network' };
+    } finally {
+      clearTimeout(timeout);
     }
     if (res.status === 401) { window.location.href = 'login.php'; return { ok: false, error: 'auth' }; }
     let d;
@@ -145,6 +162,7 @@
     container.querySelector('h1')?.focus({ preventScroll: true });
 
     const nameInput = container.querySelector('#profileName');
+    nameInputEl = nameInput;
     const saveBtn = container.querySelector('#profileSave');
     const saveLabel = saveBtn?.querySelector('.btn-label');
     if (!nameInput || !saveBtn || !saveLabel) return;
@@ -180,6 +198,7 @@
   function unmount() {
     container = null;
     currentUser = null;
+    nameInputEl = null;
   }
 
   window.Profile = { mount, unmount };

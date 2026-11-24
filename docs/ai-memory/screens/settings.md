@@ -6,8 +6,8 @@ Pantalla Configuración con modo de trabajo sin conexión, borradores locales (I
 ## 2. Archivos principales
 - `public/index.php` — Shell del dashboard; incluye botón "Configuración" en sidebar, indicador de estado del servidor dinámico, enlace a settings.css y settings.js
 - `public/assets/css/settings.css` — Estilos de Configuración (secciones, toggle, estados de conexión, borradores, sincronización, seguridad)
-- `public/assets/js/settings.js` — Lógica: IndexedDB (borradores), comprobación de conexión (ping + bootstrap), sincronización con detección de conflictos, renderizado de UI
-- `public/assets/js/app.js` — Ruta `settings` en PAGES, función `settingsView()`, montaje/desmontaje de `window.Settings`, comprobación periódica de estado del servidor (cada 30s)
+- `public/assets/js/settings.js` — Lógica: IndexedDB (borradores), comprobación de conexión (ping + bootstrap), sincronización con detección de conflictos, renderizado de UI, `AbortController`, `BroadcastChannel`, `navigator.storage.persist()`, Web Locks y Page Visibility
+- `public/assets/js/app.js` — Ruta `settings` en PAGES, función `settingsView()`, montaje/desmontaje de `window.Settings`, comprobación periódica de estado del servidor (cada 30s) con Page Visibility y BroadcastChannel
 - `public/api.php` — Endpoint `resource=ping` (solo PHP + sesión, sin MySQL) para distinguir servidor caído de MySQL caído
 - `private/bootstrap.php` — Sesiones, CSRF, `require_login()`, `is_admin()`, helpers de seguridad (sin cambios)
 - `public/sw.js` — Service Worker existente; ya excluye rutas de API del caché (sin cambios)
@@ -21,6 +21,7 @@ Pantalla Configuración con modo de trabajo sin conexión, borradores locales (I
 - `.draft-form` / `.draft-type-selector` — formulario para crear borradores
 - `.sync-status` / `.sync-actions` — estado y acciones de sincronización
 - `.settings-note` — notas informativas (info/warn/success)
+- `.settings-hint` — texto secundario bajo la nota de offline; muestra `#storagePersistenceText` (checking/active/denied/unavailable)
 - `.is-hidden` — utilidad para ocultar sin `style=` inline (CSP `style-src 'self'`)
 - `.drafts-header` / `.sync-results` — espaciado entre borradores, resultados y botones
 - Reutiliza: `.btn`, `.btn-primary`, `.btn-ghost`, `.btn-sm`, `.form-item`, `.icon`, `.notice`, `.toast`, `.connection-bar` de components.css y theme.css
@@ -33,7 +34,17 @@ Usados: `database`, `triangle-alert`, `pencil`, `activity`, `wrench`, `refresh-c
 1. **Conectado**: `api.php?resource=ping` OK + `api.php?resource=bootstrap` OK → PHP y MySQL disponibles
 2. **Sin acceso al servidor**: error de red en ping → PHP no disponible (o sin internet)
 3. **MySQL no disponible**: ping OK pero bootstrap falla (503) → PHP vivo, MySQL caído
-Comprobación cada 30s + eventos `online`/`offline`. Nunca se muestra "Sistema en línea" sin verificar el servidor.
+Comprobación cada 30s + eventos `online`/`offline`. Con Page Visibility el polling se detiene con la pestaña oculta y se reanuda al volver. Los `fetch` llevan `AbortController` (8s en API, 6s en estado) para no quedar colgados. Nunca se muestra "Sistema en línea" sin verificar el servidor.
+
+### Sincronización entre pestañas (BroadcastChannel `sirenis-locker`)
+- `app.js` emite `user` (nombre de perfil), `serverStatus` y `data` (datos operativos cambiados).
+- `settings.js` emite `drafts` al crear/borrar/sincronizar y escucha `drafts`, `serverStatus` y `data`.
+- `profile.js` escucha `user` y actualiza su campo sin recargar.
+- `render()` desmonta y vuelve a montar settings/profile en cada re-render para no duplicar listeners.
+
+### Persistencia y concurrencia
+- `navigator.storage.persist()` se solicita al montar; el resultado se muestra en `#storagePersistenceText`. Si no hay soporte, se marca "no disponible" sin romper la UI.
+- `navigator.locks.request('locker-drafts-sync', { ifAvailable: true })` evita que dos pestañas sincronicen a la vez; si no hay soporte, se sincroniza directamente.
 
 ### Preferencia: "Preparar cambios sin conexión"
 Toggle que habilita la creación de borradores locales. No simula conexión ni permite operaciones que requieran confirmación del servidor.

@@ -5,10 +5,10 @@ Pantalla "Mi perfil" integrada en el SPA del dashboard. Permite al usuario edita
 
 ## 2. Archivos principales
 - `public/index.php` — botón "Mi perfil" en la sidebar, `id="topbarUserName"` / `id="topbarUserInitial"` para sincronizar el nombre, inclusión de `profile.js` y `settings.css`
-- `public/assets/js/profile.js` — módulo `window.Profile` con `mount(el)`, `unmount()` y `template(user)`; carga y guarda vía `api.php?resource=profile`
-- `public/assets/js/app.js` — ruta `profile` en `PAGES`, `profileView()`, montaje/desmontaje en `render()`, y `window.App.updateUser(user)` para reflejar el nombre en la topbar
+- `public/assets/js/profile.js` — módulo `window.Profile` con `mount(el)`, `unmount()` y `template(user)`; carga y guarda vía `api.php?resource=profile`; usa `AbortController` (8s) y escucha `BroadcastChannel('sirenis-locker')`
+- `public/assets/js/app.js` — ruta `profile` en `PAGES`, `profileView()`, montaje/desmontaje en `render()`, `applyUser()`/`window.App.updateUser(user)` para reflejar y emitir el nombre en la topbar
 - `public/assets/css/settings.css` — estilos de `.profile-fields`, `.profile-actions`, `.profile-loading` y espaciado
-- `public/api.php` — `GET profile` lee el usuario de sesión; `POST profile` valida CSRF y actualiza `users.name` y `$_SESSION['user']['name']`
+- `public/api.php` — `GET profile` lee el usuario de sesión; `POST profile` valida CSRF y actualiza `users.display_name` (columna real, máx. 120) y `$_SESSION['user']['name']`
 
 ## 3. Componentes
 - `.profile-fields` — rejilla de campos (nombre editable, username y rol de solo lectura)
@@ -25,7 +25,8 @@ Usados: `user`, `check`, `shield-check`, `lock`, `info`. Todos existen en `lucid
 2. `GET profile` obtiene nombre, username, rol y permisos desde la sesión.
 3. El guardado envía `POST profile` con `{name}` y header `X-CSRF-Token`.
 4. Tras guardar, se actualiza el input con el nombre confirmado por el servidor y se llama a `App.updateUser()` para reflejarlo en la topbar. No se reemplaza `innerHTML`, evitando handlers duplicados.
-5. Al salir de la vista, `Profile.unmount()` libera referencias.
+5. Al salir de la vista (o al re-renderizar), `Profile.unmount()` libera referencias y `render()` vuelve a montar sobre el DOM nuevo.
+6. Otro cambio de nombre en una pestaña distinta llega por `BroadcastChannel` y actualiza el campo abierto sin recargar.
 
 ## 6. Seguridad
 - Username y rol no se pueden modificar desde el frontend ni desde el endpoint.

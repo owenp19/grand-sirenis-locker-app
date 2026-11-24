@@ -35,13 +35,20 @@ const csrf=document.querySelector('meta[name="csrf-token"]')?.content||'';
 const initialPage=(location.hash||'').slice(1);
 const S={lockers:[],movements:[],user:{name:'Responsable',role:'operador',isAdmin:false},page:PAGES[initialPage]?initialPage:'dashboard',filter:'',block:'',search:'',pageNum:1,historySearch:'',loaded:false,installPrompt:null,searchTimer:null,lastFocus:null,activityRange:14,serverTime:'',loadedAt:0,activeTab:'inventario',_lastPage:null,serverStatus:'checking'};
 let timer;
+const API_TIMEOUT=8000;
+const STATUS_TIMEOUT=6000;
+const channel=('BroadcastChannel' in window)?new BroadcastChannel('sirenis-locker'):null;
+function broadcast(msg){if(channel)channel.postMessage(msg)}
 function notify(msg,error=false){const x=el('toast');x.textContent=msg;x.classList.toggle('error',error);x.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>x.classList.remove('show'),4100)}
 function connection(state){el('connectionBar').hidden=!state}
 function announce(text){const region=el('viewStatus');if(!region)return;region.textContent='';setTimeout(()=>{region.textContent=text},40)}
 async function request(resource,body){const opts={credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}};
   if(body){opts.method='POST';opts.headers['Content-Type']='application/json';opts.headers['X-CSRF-Token']=csrf;opts.body=JSON.stringify(body)}
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT);opts.signal=controller.signal;
   let res;
-  try{res=await fetch(`api.php?resource=${encodeURIComponent(resource)}`,opts)}catch(_){connection(true);throw Error('No hay conexión con PHP/MySQL. Comprueba que el servidor esté encendido.')}
+  try{res=await fetch(`api.php?resource=${encodeURIComponent(resource)}`,opts)}
+  catch(e){connection(true);throw Error(e.name==='AbortError'?'El servidor local no responde. Comprueba que PHP y MySQL estén encendidos.':'No hay conexión con PHP/MySQL. Comprueba que el servidor esté encendido.')}
+  finally{clearTimeout(timeout)}
   if(res.status===401){window.location.href='login.php';throw Error('Sesión finalizada. Vuelve a iniciar sesión.')}
   let d;try{d=await res.json()}catch(_){connection(true);throw Error('El servidor local no devolvió una respuesta válida.')}
   if(!res.ok || !d.ok)throw Error(d.message||'No se pudo realizar la operación.');
@@ -49,7 +56,8 @@ async function request(resource,body){const opts={credentials:'same-origin',cach
 }
 async function load(refresh=true){const d=await request('bootstrap');S.lockers=d.lockers;S.movements=d.movements;S.user=d.user;S.serverTime=d.serverTime||'';S.loadedAt=Date.now();S.loaded=true;if(refresh){render();playViewEnter()}}
 function playViewEnter(){const view=el('view');if(!view)return;view.classList.remove('view-enter');void view.offsetWidth;view.classList.add('view-enter');clearTimeout(playViewEnter.timer);playViewEnter.timer=setTimeout(()=>view.classList.remove('view-enter'),1200)}
-window.App={updateUser(user){if(!user||!user.name)return;S.user.name=user.name;const n=el('topbarUserName');if(n)n.textContent=user.name;const i=el('topbarUserInitial');if(i)i.textContent=String(user.name).trim().charAt(0).toUpperCase()||'?'}};
+function applyUser(user,emit=true){if(!user||!user.name)return;S.user.name=user.name;const n=el('topbarUserName');if(n)n.textContent=user.name;const i=el('topbarUserInitial');if(i)i.textContent=String(user.name).trim().charAt(0).toUpperCase()||'?';if(emit)broadcast({type:'user',name:user.name})}
+window.App={updateUser(user){applyUser(user,true)}};
 function count(){const c=Object.fromEntries(STATUSES.map(x=>[x,0]));S.lockers.forEach(l=>c[l.status]=(c[l.status]||0)+1);return {total:S.lockers.length,...c}}
 function get(id){return S.lockers.find(l=>l.id===id)}
 function available(){return S.lockers.filter(l=>l.status==='Disponible'&&!String(l.name).trim()).sort(compare)}
@@ -273,6 +281,8 @@ function render(){
   const notifBtn=el('notifBtn');
   if(notifBtn)notifBtn.setAttribute('aria-label',issueCount?`${issueCount} incidencias de datos. Revisar.`:'Sin incidencias de datos');
   const prevPage = S._lastPage;
+  if (prevPage === 'settings' && window.Settings) window.Settings.unmount();
+  if (prevPage === 'profile' && window.Profile) window.Profile.unmount();
   el('view').innerHTML = S.page === 'dashboard' ? dashboard()
     : (S.page === 'lockers' || S.page === 'people') ? lockersManagement()
     : S.page === 'history' ? movementsPage()
@@ -286,14 +296,8 @@ function render(){
   if (S.page === 'settings' && window.Settings) {
     window.Settings.mount(el('view'), (S.user && S.user.name) ? S.user.name : '');
   }
-  if (prevPage === 'settings' && S.page !== 'settings' && window.Settings) {
-    window.Settings.unmount();
-  }
   if (S.page === 'profile' && window.Profile) {
     window.Profile.mount(el('view'));
-  }
-  if (prevPage === 'profile' && S.page !== 'profile' && window.Profile) {
-    window.Profile.unmount();
   }
   S._lastPage = S.page;
 
@@ -362,7 +366,7 @@ async function submit(form){
   const submitButton=el('modalRoot').querySelector('button[type=submit]');
   if(submitButton){submitButton.disabled=true;submitButton.textContent='Guardando…'}
   form.setAttribute('aria-busy','true');
-  try{const result=await request(resource,payload);await load(false);close();render();notify(result.message)}
+  try{const result=await request(resource,payload);await load(false);broadcast({type:'data'});close();render();notify(result.message)}
   catch(e){notify(e.message,true);if(submitButton){submitButton.disabled=false;submitButton.textContent='Volver a intentar'}}
   finally{form.removeAttribute('aria-busy')}
 }
@@ -449,21 +453,7 @@ window.addEventListener('online',()=>{connection(false);checkServerStatus();});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();S.installPrompt=e});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
-async function checkServerStatus(){
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-  try{
-    const res = await fetch(`api.php?resource=ping`, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken } });
-    if (!res.ok) { S.serverStatus = 'no-server'; updateServerStatusIndicator(); return; }
-    const boot = await fetch(`api.php?resource=bootstrap`, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken } });
-    if (!boot.ok) { S.serverStatus = 'no-mysql'; updateServerStatusIndicator(); return; }
-    S.serverStatus = 'connected';
-  } catch (_) {
-    S.serverStatus = 'no-server';
-  }
-  updateServerStatusIndicator();
-}
-
-function updateServerStatusIndicator(){
+function updateServerStatusIndicator(emit=true){
   const dot = el('serverStatusDot');
   const text = el('serverStatusText');
   if (!dot || !text) return;
@@ -471,9 +461,41 @@ function updateServerStatusIndicator(){
   text.textContent = S.serverStatus === 'connected' ? 'Conectado al servidor'
     : S.serverStatus === 'no-mysql' ? 'PHP disponible, MySQL no responde'
     : 'Sin acceso al servidor';
+  if(emit)broadcast({type:'serverStatus',status:S.serverStatus});
 }
 
-setInterval(checkServerStatus, 30000);
+async function statusFetch(resource){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),STATUS_TIMEOUT);
+  try{
+    return await fetch(`api.php?resource=${encodeURIComponent(resource)}`,{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json','X-CSRF-Token':csrf},signal:controller.signal});
+  }catch(_){return null}finally{clearTimeout(timeout)}
+}
+
+async function checkServerStatus(){
+  const ping=await statusFetch('ping');
+  if(!ping||!ping.ok){S.serverStatus='no-server';updateServerStatusIndicator();return}
+  const boot=await statusFetch('bootstrap');
+  if(!boot){S.serverStatus='no-server';updateServerStatusIndicator();return}
+  if(!boot.ok){S.serverStatus='no-mysql';updateServerStatusIndicator();return}
+  S.serverStatus='connected';
+  updateServerStatusIndicator();
+}
+
+let statusTimer=null;
+function startStatusPolling(){if(statusTimer)return;statusTimer=setInterval(()=>{if(!document.hidden)checkServerStatus()},30000)}
+function stopStatusPolling(){if(statusTimer){clearInterval(statusTimer);statusTimer=null}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopStatusPolling();return}startStatusPolling();checkServerStatus()});
+
+if(channel){
+  channel.addEventListener('message',e=>{
+    const msg=e.data||{};
+    if(msg.type==='user'){applyUser({name:msg.name},false);return}
+    if(msg.type==='serverStatus'){S.serverStatus=msg.status;updateServerStatusIndicator(false);return}
+    if(msg.type==='data'){load(false).then(()=>render()).catch(()=>{})}
+  });
+}
+startStatusPolling();
 checkServerStatus();
 
 load().catch(e=>{el('view').setAttribute('aria-busy','false');el('view').innerHTML=`<div class="error-splash"><h2>No se pudieron cargar los lockers</h2><p>${esc(e.message)}</p><button class="btn btn-primary" id="retry">${icon('refresh-cw')} Reintentar conexión</button><p><small>Comprueba Apache/PHP y MySQL. No se han modificado registros.</small></p></div>`;el('retry')?.addEventListener('click',()=>window.location.reload())});

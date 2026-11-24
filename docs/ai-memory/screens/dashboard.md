@@ -55,6 +55,7 @@ Centro operativo del sistema. Resume ocupación, actividad y operaciones del inv
 - `index.php`: sidebar con Gestión de lockers, Configuración y Mi perfil; sin usuario duplicado; header con `.topbar-user` y `#logoutForm`; se eliminó el nodo muerto `#serverStatusDetail`.
 - `motion.js`: eliminado el cargador diferido `data-lazy`/`data-src`/`data-bg` (sin usos en el proyecto).
 - `sw.js`: caché v9 con `settings.css`, `settings.js` y `profile.js` para que la PWA sirva las pantallas nuevas sin conexión.
+- Capacidades nativas añadidas: `AbortController` con timeout en `request()` (8s) y en el chequeo de estado (6s); `BroadcastChannel('sirenis-locker')` para nombre, estado del servidor, datos y borradores entre pestañas; `navigator.storage.persist()` en Configuración; Web Locks para sincronización exclusiva; Page Visibility para pausar ambos polling en pestañas ocultas. `render()` desmonta/remonta settings y profile para evitar listeners duplicados.
 - Verificado: `node --check` en todos los JS modificados OK, `php -l` OK.
 
 ## 8. Problemas conocidos

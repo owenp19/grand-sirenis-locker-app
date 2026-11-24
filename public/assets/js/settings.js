@@ -8,6 +8,21 @@
   const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 const csrf = csrfMeta ? csrfMeta.content : '';
   const API = 'api.php';
+  const API_TIMEOUT = 8000;
+  const channel = ('BroadcastChannel' in window) ? new BroadcastChannel('sirenis-locker') : null;
+
+  function broadcastDrafts() {
+    if (channel) channel.postMessage({ type: 'drafts' });
+  }
+
+  if (channel) {
+    channel.addEventListener('message', e => {
+      const msg = e.data || {};
+      if (msg.type === 'drafts') { loadDrafts().catch(() => {}); return; }
+      if (msg.type === 'serverStatus') { connectionState = msg.status; render(); return; }
+      if (msg.type === 'data') { checkConnection().catch(() => {}); }
+    });
+  }
 
   /* ── IndexedDB: borradores locales (solo datos operativos, sin datos personales) ── */
   const DB_NAME = 'locker_drafts';
@@ -85,16 +100,21 @@ const csrf = csrfMeta ? csrfMeta.content : '';
 
   async function fetchJson(resource, opts = {}) {
     const headers = { Accept: 'application/json', ...opts.headers };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_TIMEOUT);
     let res;
     try {
       res = await fetch(`${API}?resource=${encodeURIComponent(resource)}`, {
         credentials: 'same-origin',
         cache: 'no-store',
         headers,
+        signal: controller.signal,
         ...opts
       });
     } catch (_) {
       return { ok: false, error: 'network' };
+    } finally {
+      clearTimeout(timeout);
     }
     if (res.status === 401) { window.location.href = 'login.php'; return { ok: false, error: 'auth' }; }
     let d;
@@ -135,12 +155,23 @@ const csrf = csrfMeta ? csrfMeta.content : '';
   let syncStatus = 'idle'; // idle, syncing, conflict, done
   let syncConflicts = [];
   let syncResultsData = [];
+  let persistentStorage = 'checking';
   let container = null;
   let checkTimer = null;
 
   function handleOffline() {
     connectionState = 'no-server';
     render();
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      if (checkTimer) clearInterval(checkTimer);
+      checkTimer = null;
+      return;
+    }
+    if (!checkTimer && container) checkTimer = setInterval(checkConnection, 30000);
+    checkConnection().catch(() => {});
   }
 
   async function handleDraftsClick(e) {
@@ -150,10 +181,28 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     if (!confirm('¿Eliminar este borrador? No se podrá recuperar.')) return;
     try {
       await removeDraft(id);
+      broadcastDrafts();
       notify('Borrador eliminado.');
     } catch (err) {
       notify('No se pudo eliminar el borrador.', true);
     }
+  }
+
+  async function requestPersistentStorage() {
+    if (!navigator.storage || !navigator.storage.persist) {
+      persistentStorage = 'unavailable';
+      render();
+      return false;
+    }
+    try {
+      const already = await navigator.storage.persisted();
+      const granted = already || await navigator.storage.persist();
+      persistentStorage = granted ? 'active' : 'denied';
+    } catch (_) {
+      persistentStorage = 'unavailable';
+    }
+    render();
+    return persistentStorage === 'active';
   }
 
   function getDraftTypeLabel(type) {
@@ -250,6 +299,12 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     if (connPhp) connPhp.textContent = connectionState === 'no-server' ? 'No disponible' : 'Disponible';
     if (connMysql) connMysql.textContent = connectionState === 'no-mysql' ? 'No disponible' : connectionState === 'connected' ? 'Disponible' : '—';
 
+    const storageText = container.querySelector('#storagePersistenceText');
+    if (storageText) {
+      const labels = { checking: 'comprobando…', active: 'activado', denied: 'no concedido', unavailable: 'no disponible' };
+      storageText.textContent = 'Almacenamiento persistente: ' + (labels[persistentStorage] || 'comprobando…');
+    }
+
     // Toggle offline
     const toggle = container.querySelector('#offlineToggle');
     if (toggle) {
@@ -312,6 +367,20 @@ const csrf = csrfMeta ? csrfMeta.content : '';
 
   /* ── Sincronización ── */
   async function syncDrafts() {
+    if (!navigator.locks || !navigator.locks.request) {
+      await performSync();
+      return;
+    }
+    await navigator.locks.request('locker-drafts-sync', { ifAvailable: true }, async lock => {
+      if (!lock) {
+        notify('Ya hay una sincronización en curso en otra pestaña.', true);
+        return;
+      }
+      await performSync();
+    });
+  }
+
+  async function performSync() {
     if (connectionState !== 'connected') {
       notify('No hay conexión con el servidor. No se puede sincronizar.', true);
       return;
@@ -380,6 +449,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     }
 
     await loadDrafts(); // recargar después de eliminar sincronizados
+    broadcastDrafts();
     syncResultsData = results;
     syncStatus = syncConflicts.length ? 'conflict' : 'done';
     render();
@@ -408,6 +478,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     await idbOpen();
     await loadDrafts();
     await checkConnection();
+    requestPersistentStorage().catch(() => {});
     render();
 
     // Eventos
@@ -456,6 +527,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
       const notes = container.querySelector('#draftNotes').value.trim();
       try {
         await addDraft(type, lockerId, proposedStatus, notes);
+        broadcastDrafts();
         form.reset();
         statusField.classList.add('is-hidden');
         typeBtns[0].classList.add('is-active');
@@ -480,9 +552,10 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     });
 
     // Revisar conexión periódicamente
-    checkTimer = setInterval(checkConnection, 30000);
+    if (!document.hidden) checkTimer = setInterval(checkConnection, 30000);
     window.addEventListener('online', checkConnection);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
   }
 
   function unmount() {
@@ -490,10 +563,12 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     checkTimer = null;
     window.removeEventListener('online', checkConnection);
     window.removeEventListener('offline', handleOffline);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
     if (container) container.removeEventListener('click', handleDraftsClick);
     container = null;
     currentUser = null;
     syncResultsData = [];
+    persistentStorage = 'checking';
   }
 
   /* ── Template HTML ── */
@@ -559,6 +634,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
           <div class="settings-note warn">
             ${ICON('triangle-alert')} Los borradores solo incluyen observaciones operativas y propuestas de estado físico. No permiten asignaciones definitivas, liberaciones, traslados ni cambios de usuario o permisos.
           </div>
+          <p class="settings-hint" id="storagePersistenceText">Almacenamiento persistente: comprobando…</p>
         </div>
       </section>
 
