@@ -16,6 +16,8 @@ const icons = [
   'chevron-left', 'chevron-right', 'x', 'check', 'download', 'plus',
   'refresh-cw', 'sparkles', 'circle-alert', 'box', 'filter', 'user', 'at-sign',
   'database', 'pencil', 'heart',
+  'bell', 'calendar-days', 'clock', 'trending-up', 'trending-down',
+  'circle-check', 'activity', 'chart-column', 'gauge',
 ];
 
 const sourceDir = path.join(__dirname, '..', 'node_modules', 'lucide-static', 'icons');
@@ -26,11 +28,18 @@ const targetDir = path.join(__dirname, '..', 'public', 'assets', 'icons');
 const target = path.join(targetDir, 'lucide-sprite.svg');
 const spriteMarkup = fs.existsSync(sourceSprite) ? fs.readFileSync(sourceSprite, 'utf8') : null;
 
-function iconInner(name) {
+function iconInner(name, depth = 0) {
+  if (depth > 6) throw new Error(`Alias circular en icono: ${name}`);
   if (spriteMarkup) {
     const match = spriteMarkup.match(new RegExp(`<symbol[^>]*\\bid="${name}"[^>]*>([\\s\\S]*?)</symbol>`));
     if (!match) throw new Error(`Icono no encontrado en sprite: ${name}`);
-    return match[1].trim().replace(/\n\s+/g, '\n  ');
+    // lucide-static define algunos iconos como alias internos
+    // (<symbol id="history"><use href="#rotate-ccw-clock"/></symbol>).
+    // En un sprite externo esos <use> no resuelven, así que se inlinean.
+    return match[1]
+      .replace(/<use[^>]*\bhref="#([^"]+)"[^>]*\/?>(?:<\/use>)?/g, (_, alias) => iconInner(alias, depth + 1))
+      .trim()
+      .replace(/\n\s+/g, '\n  ');
   }
   const file = path.join(sourceDir, `${name}.svg`);
   if (!fs.existsSync(file)) throw new Error(`Icono no encontrado: ${name}`);

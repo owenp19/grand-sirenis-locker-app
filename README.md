@@ -8,21 +8,21 @@ Aplicación local, ligera y segura para gestionar los lockers (casilleros) de lo
 
 <div align="center">
   <img
-    src="public/assets/image/grand-sirenis-locker-app-logo-black-720.png"
+    src="public/assets/image/grand-sirenis-locker-app-hero-page.png"
     alt="Pantallazo 1"
-    width="24%"
+    width="44%"
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
   />
   <img
-    src="public/assets/image/grand-sirenis-locker-app-favicon.png"
+    src="public/assets/image/grand-sirenis-locker-app-login-page.png"
     alt="Pantallazo 2"
-    width="24%"
+    width="44%"
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
   />
   <img
     src="public/assets/image/grand-sirenis-locker-app-logo-white.png"
     alt="Pantallazo 3"
-    width="24%"
+    width="44%"
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
   />
 </div>

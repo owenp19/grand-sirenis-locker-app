@@ -164,6 +164,18 @@
   background: var(--color-warning-soft);
   color: var(--color-warning);
 }
+.stat-icon.tone-gold {
+  background: var(--d-gold-soft, rgba(165, 131, 46, 0.12));
+  color: var(--color-primary);
+}
+.stat-icon.tone-navy {
+  background: rgba(21, 43, 65, 0.08);
+  color: var(--navy);
+}
+.stat-icon.tone-violet {
+  background: #f1edf8;
+  color: #6b5a92;
+}
 .bar-assigned { background: var(--color-info); }
 .bar-available { background: var(--color-success); }
 .bar-other { background: #bb8f56; }

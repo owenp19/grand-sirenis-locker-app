@@ -222,6 +222,76 @@ html.motion .auth-field[data-reveal]:nth-child(6) {
   to { transform: translate3d(-18px, 14px, 0); }
 }
 
+/* Dashboard y gráficos ------------------------------------------------------ */
+@keyframes motion-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes motion-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes motion-dot-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.view-enter .dash-meta,
+.view-enter .legend-row,
+.view-enter .quick-card,
+.view-enter .feed-item,
+.view-enter .block-btn,
+.view-enter .chart-summary {
+  animation: motion-fade-up 420ms var(--ease-standard) both;
+}
+
+.view-enter .legend-row:nth-child(2),
+.view-enter .quick-card:nth-child(2),
+.view-enter .feed-item:nth-child(2),
+.view-enter .block-btn:nth-child(2) { animation-delay: 60ms; }
+
+.view-enter .legend-row:nth-child(3),
+.view-enter .quick-card:nth-child(3),
+.view-enter .feed-item:nth-child(3),
+.view-enter .block-btn:nth-child(3) { animation-delay: 120ms; }
+
+.view-enter .legend-row:nth-child(4),
+.view-enter .quick-card:nth-child(4),
+.view-enter .feed-item:nth-child(4),
+.view-enter .block-btn:nth-child(4) { animation-delay: 180ms; }
+
+.view-enter .quick-card:nth-child(5),
+.view-enter .feed-item:nth-child(5),
+.view-enter .block-btn:nth-child(5) { animation-delay: 240ms; }
+
+.view-enter .donut-seg {
+  animation: motion-fade 520ms var(--ease-standard) both;
+}
+
+.view-enter .donut-seg:nth-child(2) { animation-delay: 70ms; }
+.view-enter .donut-seg:nth-child(3) { animation-delay: 140ms; }
+.view-enter .donut-seg:nth-child(4) { animation-delay: 210ms; }
+.view-enter .donut-seg:nth-child(5) { animation-delay: 280ms; }
+
+.view-enter .donut-center-strong,
+.view-enter .donut-center-caption {
+  animation: motion-fade 520ms 180ms var(--ease-standard) both;
+}
+
+.view-enter .activity-area {
+  animation: motion-fade 620ms 100ms var(--ease-standard) both;
+}
+
+.view-enter .activity-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: motion-dot-in 420ms 260ms var(--ease-standard) both;
+}
+
+.view-enter .chart-summary { animation-delay: 220ms; }
+
 /* Sin movimiento ------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .boot {
@@ -245,5 +315,27 @@ html.motion .auth-field[data-reveal]:nth-child(6) {
   .welcome-cta::before,
   .auth-submit::before {
     display: none;
+  }
+
+  .view-enter .dash-meta,
+  .view-enter .legend-row,
+  .view-enter .quick-card,
+  .view-enter .feed-item,
+  .view-enter .block-btn,
+  .view-enter .chart-summary,
+  .view-enter .donut-seg,
+  .view-enter .donut-center-strong,
+  .view-enter .donut-center-caption,
+  .view-enter .activity-area,
+  .view-enter .activity-dot,
+  .view-enter .activity-line,
+  .view-enter .page-head,
+  .view-enter .dash-hero,
+  .view-enter .stat,
+  .view-enter .dash-grid .panel,
+  .view-enter .dash-grid-split .panel {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

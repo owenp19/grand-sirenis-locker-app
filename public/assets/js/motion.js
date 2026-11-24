@@ -2,7 +2,6 @@
    Grand Sirenis Locker App · Precarga, revelado y carga diferida
    - Retira la capa de precarga cuando la página terminó de cargar.
    - Revela [data-reveal] al entrar en pantalla (IntersectionObserver).
-   - Carga diferida de imágenes [data-lazy]/[data-src] y fondos [data-bg].
    - Actualiza el service worker para no servir CSS/JS antiguos.
    Sin dependencias, sin estilos inline en el contenido y accesible sin JS.
    ========================================================================== */
@@ -86,44 +85,7 @@
     else window.addEventListener('load', scheduleRevealFallback, { once: true });
   }
 
-  /* 3. Carga diferida ------------------------------------------------------- */
-  document.querySelectorAll('img[data-lazy]').forEach((image) => {
-    image.loading = 'lazy';
-    image.decoding = 'async';
-  });
-
-  const deferred = Array.from(document.querySelectorAll('img[data-src], [data-bg]'));
-  if (deferred.length) {
-    const loadDeferred = (element) => {
-      if (element.tagName === 'IMG' && element.dataset.src) {
-        element.src = element.dataset.src;
-        element.removeAttribute('data-src');
-        return;
-      }
-      if (element.dataset.bg) {
-        element.style.backgroundImage = `url("${element.dataset.bg}")`;
-        element.removeAttribute('data-bg');
-      }
-    };
-
-    if (!('IntersectionObserver' in window)) {
-      deferred.forEach(loadDeferred);
-    } else {
-      const lazyObserver = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) return;
-            loadDeferred(entry.target);
-            lazyObserver.unobserve(entry.target);
-          });
-        },
-        { rootMargin: '240px 0px' }
-      );
-      deferred.forEach((element) => lazyObserver.observe(element));
-    }
-  }
-
-  /* 4. Service worker: evitar que se sirvan recursos antiguos ---------------- */
+  /* 3. Service worker: evitar que se sirvan recursos antiguos ---------------- */
   if ('serviceWorker' in navigator) {
     window.addEventListener(
       'load',

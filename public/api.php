@@ -167,10 +167,22 @@ function csv_output(string $name, array $headers, array $rows): never {
     }
     fclose($out);exit;
 }
+$method=$_SERVER['REQUEST_METHOD'] ?? 'GET';
+$resource=(string) ($_GET['resource'] ?? 'bootstrap');
+
+// Endpoint ligero de disponibilidad: solo PHP + sesión, sin MySQL.
+// Permite distinguir entre servidor PHP caído y MySQL caído.
+if ($method==='GET' && $resource==='ping') {
+    respond(['ok'=>true, 'serverTime'=>date(DATE_ATOM)]);
+}
+
+// Perfil del usuario autenticado (lectura de sesión, sin MySQL).
+if ($method==='GET' && $resource==='profile') {
+    respond(['ok'=>true, 'user'=>['name'=>$user['name'], 'username'=>$user['username'], 'role'=>$isAdmin?'administrador':'operador', 'isAdmin'=>$isAdmin]]);
+}
+
 try {
     $db=db();
-    $method=$_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $resource=(string) ($_GET['resource'] ?? 'bootstrap');
     if ($method==='GET' && $resource==='bootstrap') {
         respond(['ok'=>true,'lockers'=>rows_lockers($db),'movements'=>rows_movements($db),
             'user'=>['name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin],
@@ -212,6 +224,12 @@ try {
     if ((int)($_SERVER['CONTENT_LENGTH']??0)>20000) fail('Formulario demasiado grande.',413);
     $body=json_decode((string)file_get_contents('php://input'),true);
     if (!is_array($body)) fail('Solicitud JSON inválida.',400);
+    if ($method==='POST' && $resource==='profile') {
+        $name=field($body,'name',120,true);
+        $db->prepare('UPDATE users SET display_name=? WHERE id=?')->execute([$name,$user['id']]);
+        $_SESSION['user']['name']=$name;
+        respond(['ok'=>true,'message'=>'Nombre actualizado correctamente.','user'=>['name'=>$name,'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
+    }
     respond(do_action($db,$user,$resource,$body));
 } catch (PDOException $e) {
     error_log('LockerFlow PDO: '.$e->getMessage());
