@@ -50,7 +50,9 @@ $isAdmin = is_admin();
     <button type="button" class="nav-btn" data-page="history" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#history"></use></svg></span><span class="nav-text">Movimientos</span></button>
     <button type="button" class="nav-btn" data-page="issues" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#triangle-alert"></use></svg></span><span class="nav-text">Incidencias</span><span class="nav-counter" id="issueBadge"></span></button>
     <button type="button" class="nav-btn" data-page="settings" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#wrench"></use></svg></span><span class="nav-text">Configuración</span></button>
-    <button type="button" class="nav-btn" data-page="profile" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#user"></use></svg></span><span class="nav-text">Mi perfil</span></button>
+    <?php if ($isAdmin): ?>
+    <button type="button" class="nav-btn" data-page="offboarding" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#log-out"></use></svg></span><span class="nav-text">Salida de personal</span></button>
+    <?php endif; ?>
   </nav>
   <div class="side-footer">
     <div class="status-card">

@@ -9,7 +9,8 @@ const PAGES={
   history:{title:'Bitácora de movimientos'},
   issues:{title:'Incidencias'},
   settings:{title:'Configuración'},
-  profile:{title:'Mi perfil'}
+  profile:{title:'Mi perfil'},
+  offboarding:{title:'Salida de personal'}
 };
 const RANGES=[7,14,30];
 const TYPE_META={
@@ -267,6 +268,34 @@ function profileView(){
   if(!window.Profile) return '<div class="error-splash"><h2>Perfil no disponible</h2><p>El módulo de perfil no se cargó.</p></div>';
   return '<div class="profile-loading">Cargando perfil…</div>';
 }
+function offboardingView(){
+  if(!window.Profile) return '<div class="error-splash"><h2>Perfil no disponible</h2><p>El módulo de perfil no se cargó.</p></div>';
+  return `<section class="offboarding-page">
+    <div class="page-head">
+      <span class="kicker">Salida de personal</span>
+      <h1 tabindex="-1">Registrar salida de colaborador</h1>
+    </div>
+    <section class="offboarding-section">
+      <div class="search-box">
+        <input type="text" class="search-input" placeholder="Nombre completo del colaborador" autocomplete="off">
+        <button type="button" class="btn btn-primary" data-action="offboarding-search">Buscar</button>
+      </div>
+      <div class="results-list hidden" id="offboardingResults"></div>
+    </section>
+    <section class="offboarding-preview hidden" id="offboardingPreview">
+      <p>Colaborador: <strong id="offboardingPersonName"></strong></p>
+      <p class="small">Lockers a liberar: <span id="offboardingLockerCount">0</span></p>
+    </section>
+    <section class="offboarding-process hidden" id="offboardingProcess">
+      <input type="hidden" id="offboardingLockerIds" value="">
+      <p>¿Estás seguro de liberar los lockers seleccionados para <strong id="offboardingPersonName2"></strong>?</p>
+      <p class="small">Lockers a liberar: <span id="offboardingLockerCount2">0</span></p>
+      <button type="button" class="btn btn-confirm" data-action="offboarding-confirm">Confirmar liberación</button>
+      <button type="button" class="btn btn-cancel" data-action="offboarding-cancel">Cancelar</button>
+    </section>
+    <section class="offboarding-result hidden" id="offboardingResult"></section>
+  </section>`;
+}
 function render(){
   if(!S.loaded)return;
   document.querySelectorAll('[data-page]').forEach(n=>{
@@ -288,7 +317,8 @@ function render(){
     : S.page === 'history' ? movementsPage()
     : S.page === 'issues' ? issuesPage()
     : S.page === 'settings' ? settingsView()
-    : S.page === 'profile' ? profileView() : issuesPage();
+    : S.page === 'profile' ? profileView()
+    : S.page === 'offboarding' ? offboardingView() : issuesPage();
   el('view').setAttribute('aria-busy','false');
   const meta = PAGES[S.page] || PAGES.dashboard;
   const title = el('topbarTitle'); if (title) title.textContent = meta.title;
@@ -378,7 +408,7 @@ async function refreshDashboard(){
   finally{const next=document.querySelector('[data-action="refresh"]');if(next){next.disabled=false;next.removeAttribute('aria-busy')}}
 }
 function handle(action,id=''){
-  if(action==='close'){close();return}if(action==='assign'){openAssign(id);return}if(action==='release'){openRelease(id);return}if(action==='transfer'){openTransfer(id);return}if(action==='status'){openStatus(id);return}if(action==='edit'){openEdit(id);return}if(action==='reconcile'){openReconcile(id);return}if(action==='detail'){openDetail(id);return}
+  if(action==='close'){close();return}if(action==='assign'){openAssign(id);return}if(action==='release'){openRelease(id);return}if(action==='transfer'){openTransfer(id);return}if(action==='status'){openStatus(id);return}if(action==='edit'){openEdit(id);return}if(action==='reconcile'){openReconcile(id);return}if(action==='detail'){openDetail(id);return}if(action==='offboarding-search'){offboardingSearch();return}if(action==='offboarding-confirm'){offboardingConfirm();return}if(action==='offboarding-cancel'){offboardingCancel();return}
   if(action==='block'){go('lockers',true,{block:id});return}
   if(action==='filterStatus'){go('lockers',true,{filter:id});return}
   if(action==='viewAvailable'){go('lockers',true,{filter:'Disponible'});return}
