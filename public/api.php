@@ -49,8 +49,11 @@ function save_movement(PDO $db, array $user, string $type, string $locker, strin
     ]);
 }
 function operator_name(array $data, array $user): string {
-    $n=field($data,'by',120);
-    return $n !== '' ? $n : $user['name'];
+    // Identidad desde la sesión validada (no se confía en datos del cliente).
+    // Se prefiere el nombre real del usuario almacenado en BD,
+    // caído en caso de no disponerlo, pero nunca se usa el valor enviado por el cliente.
+    $n = $user['name'] ?? '';
+    return $n !== '' ? $n : (($user['username'] ?? ''));
 }
 
 function search_former_collaborators(PDO $db, string $query): array {
@@ -293,11 +296,15 @@ try {
     if ($method==='GET' && $resource==='export') {
         $type=(string)($_GET['type']??'');$now=date('Y-m-d_H-i');
         if ($type==='inventory') {
+            // Solo administradores pueden exportar inventario completo.
+            if (!$isAdmin) fail('No tiene permiso para exportar el inventario.', 403);
             $raw=rows_lockers($db);$keys=['id','block','status','name','department','supervisor','condition','date','dateRaw','deliveredBy','previousOwner','from','to','reason','originalStatus','sourceRow'];
             $rows=array_map(static fn($r)=>array_map(static fn($k)=>$r[$k]??'', $keys),$raw);
             csv_output("lockers_inventario_$now.csv",['Locker','Bloque','Estado','Colaborador','Departamento','Jefe','Condición','Fecha entrega','Fecha origen','Entregado por','Antiguo titular','Traslado desde','Traslado hacia','Observaciones','Estado origen','Fila Excel'],$rows);
         }
         if ($type==='history') {
+            // Solo administradores pueden exportar historial completo.
+            if (!$isAdmin) fail('No tiene permiso para exportar el historial.', 403);
             $rows=rows_movements($db,null);
             csv_output("lockers_movimientos_$now.csv",['ID','Acción','Locker','Colaborador','Responsable','Detalle','Fecha'],array_map(static fn($r)=>[$r['id'],$r['type'],$r['locker'],$r['person'],$r['by'],$r['description'],$r['at']],$rows));
         }
