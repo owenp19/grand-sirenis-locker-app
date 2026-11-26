@@ -444,11 +444,33 @@ function go(page,push=true,opts={}){
   if(opts.filter)S.filter=opts.filter;
   if(opts.block)S.block=opts.block;
   if(push&&location.hash!==`#${page}`)history.pushState({page},'',`#${page}`);
+  // Cargar scripts específicos por página (carga diferida)
+  loadPageScripts(page);
   render();
   window.scrollTo({top:0,behavior:'auto'});
   playViewEnter();
   el('view').querySelector('h1')?.focus({preventScroll:true});
   announce(`Vista: ${PAGES[page].title}`);
+}
+// Cargar scripts específicos por página de forma diferida
+function loadPageScripts(page){
+  const loaded=S.loadedScripts||new Set();
+  if(loaded.has(page))return;// ya cargado
+  const mappings={
+    settings:['assets/js/settings.js'],
+    profile:['assets/js/profile.js']
+  };
+  const scripts=mappings[page]||[];
+  scripts.forEach(src=>{
+    if(loaded.has(src))return;// ya cargado
+    const el=document.createElement('script');
+    el.src=src;el.defer=true;el.onload=()=>loaded.add(src);
+    el.onerror=()=>{// script no existente, continuar sin error
+      document.head.removeChild(el);
+    };
+    document.head.appendChild(el);
+  });
+  if(scripts.length)loaded.add(page);
 }
 function opt(value,label,selected){return `<option value="${esc(value)}" ${String(value)===String(selected)?'selected':''}>${esc(label)}</option>`}
 function select(values,selected='',empty='Selecciona una opción'){return `<option value="" ${!selected?'selected':''} disabled>${esc(empty)}</option>`+values.map(x=>Array.isArray(x)?opt(x[0],x[1],selected):opt(x,x,selected)).join('')}
@@ -706,9 +728,9 @@ async function statusFetch(resource){
 async function checkServerStatus(){
   const ping=await statusFetch('ping');
   if(!ping||!ping.ok){S.serverStatus='no-server';updateServerStatusIndicator();return}
-  const boot=await statusFetch('bootstrap');
-  if(!boot){S.serverStatus='no-server';updateServerStatusIndicator();return}
-  if(!boot.ok){S.serverStatus='no-mysql';updateServerStatusIndicator();return}
+  const health=await statusFetch('health');
+  if(!health||!health.ok){S.serverStatus='no-server';updateServerStatusIndicator();return}
+  if(!health.php){S.serverStatus='no-mysql';updateServerStatusIndicator();return}
   S.serverStatus='connected';
   updateServerStatusIndicator();
 }

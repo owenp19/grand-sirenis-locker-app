@@ -26,8 +26,6 @@ $isAdmin = is_admin();
 <link rel="stylesheet" href="assets/css/management.css">
 <title>Panel de control · Grand Sirenis Locker App</title>
 <script src="assets/js/app.js" defer></script>
-<script src="assets/js/settings.js" defer></script>
-<script src="assets/js/profile.js" defer></script>
 <script src="assets/js/motion.js" defer></script>
 </head>
 <body class="dashboard-page">

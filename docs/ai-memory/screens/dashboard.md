@@ -51,6 +51,14 @@ Centro operativo del sistema. Resume ocupación, actividad y operaciones del inv
 ## 7. Cambios realizados
 - `app.css`: sidebar textos/iconos blancos, activo dorado diferenciado, tablet/móvil ajustados, `.status-card small` oculto, eliminación `.user-card`/`.avatar`/`.user-meta`/`.user-state` del sidebar, menú de usuario en header, indicador conexión simplificado. `chart-draw` solo corre bajo `.view-enter`.
 - `app.js`: `render()` marca activo `[data-page="lockers"]` también en `#people`; `gestionTab` cambia `S.activeTab`, `S.page` y `history.pushState`; rutas `#lockers`/`#people` conservadas; `profile` y `settings` montan sus módulos; `logout` envía el formulario. `playViewEnter()` centraliza la animación de entrada (antes duplicada en `go()`) y se llama también en la carga inicial; se eliminó la rama duplicada de `gestionTab`.
+- **FASE 8 - Optimización rendimiento**:
+  - `api.php?resource=health` endpoint ligero: solo PHP + SELECT 1, sin lockers/movimientos/usuarios.
+  - `checkServerStatus()` usa `health` en lugar de `bootstrap` completo (ahorro ~30s cada 30s).
+  - `rows_movements()` límite por defecto: 20 (antes 500/50000) para dashboard; `rows_movements_all()` para exportaciones.
+  - Endpoint `dashboard` ligero con indicadores clave (total, disponible, asignado, warning, último movimiento).
+  - `index.php` solo carga `app.js` + `motion.js` en `<head>`; `settings.js` y `profile.js` cargados dinámicamente por `loadPageScripts()` en `app.js` al navegar de página.
+  - Índices MySQL verificados: sin redundantes, consultas principales aprovechan idx_status/idx_created/idx_locker.
+  - `npm run test:static`: **11 PHP + 5 JS, 0 fallos** (validación mantenida).
 - `motion.css`: entrada escalonada de `.dash-meta`, `.legend-row`, `.quick-card`, `.feed-item`, `.block-btn`, `.chart-summary`, `.donut-seg`, centros de la dona, `.activity-area` y `.activity-dot`; bloque ampliado de `prefers-reduced-motion`.
 - `index.php`: sidebar con Gestión de lockers, Configuración y Mi perfil; sin usuario duplicado; header con `.topbar-user` y `#logoutForm`; se eliminó el nodo muerto `#serverStatusDetail`.
 - `motion.js`: eliminado el cargador diferido `data-lazy`/`data-src`/`data-bg` (sin usos en el proyecto).

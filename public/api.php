@@ -18,13 +18,23 @@ function rows_lockers(PDO $db): array {
       FROM lockers ORDER BY block_no, locker_no");
     return $q->fetchAll();
 }
-function rows_movements(PDO $db, ?int $limit = 500): array {
-    // Tope duro para acotar memoria en exportaciones y respaldos.
+function rows_movements(PDO $db, ?int $limit = 20): array {
+    // Consulta por defecto limita a 20 para dashboard (performance).
+    // Para exportaciones completas, usar rows_movements_all().
     $max = $limit === null ? 50000 : min(max(1, $limit), 50000);
     $q = $db->query("SELECT id, action_name AS type, locker_id AS locker,
        COALESCE(person_name,'') AS person, actor_name AS `by`, detail AS description,
        DATE_FORMAT(created_at,'%Y-%m-%dT%H:%i:%s') AS at
        FROM movements ORDER BY id DESC LIMIT " . $max);
+    return $q->fetchAll();
+}
+
+function rows_movements_all(PDO $db): array {
+    // Trae todos los movimientos para exportación (máx. 50000).
+    $q = $db->query("SELECT id, action_name AS type, locker_id AS locker,
+       COALESCE(person_name,'') AS person, actor_name AS `by`, detail AS description,
+       DATE_FORMAT(created_at,'%Y-%m-%dT%H:%i:%s') AS at
+       FROM movements ORDER BY id DESC LIMIT 50000");
     return $q->fetchAll();
 }
 function get_lock(PDO $db, string $id): ?array {
@@ -271,6 +281,19 @@ if ($method==='GET' && $resource==='ping') {
     respond(['ok'=>true, 'serverTime'=>date(DATE_ATOM)]);
 }
 
+// Health check ultra-ligero: solo PHP + SELECT 1, sin lockers, movimientos ni datos de usuarios.
+if ($method==='GET' && $resource==='health') {
+    try {
+        $pdo = db();
+        $q = $pdo->query('SELECT 1');
+        $result = $q->fetch();
+        respond(['ok'=>true, 'php'=>true, 'database'=>($result !== false)]);
+    } catch (Throwable $e) {
+        error_log('Health check error: ' . $e->getMessage());
+        respond(['ok'=>false, 'php'=>true, 'database'=>false]);
+    }
+}
+
 // Perfil del usuario autenticado (lectura de sesión, sin MySQL).
 if ($method==='GET' && $resource==='profile') {
     respond(['ok'=>true, 'user'=>['name'=>$user['name'], 'username'=>$user['username'], 'role'=>$isAdmin?'administrador':'operador', 'isAdmin'=>$isAdmin]]);
@@ -295,6 +318,25 @@ try {
         respond(['ok'=>true,'lockers'=>rows_lockers($db),'movements'=>rows_movements($db),
             'user'=>['name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin],
             'csrf'=>csrf_token(), 'serverTime'=>date(DATE_ATOM)]);
+    }
+    // Endpoint dashboard ligero: solo indicadores clave, sin descargar todos los lockers.
+    if ($method==='GET' && $resource==='dashboard') {
+        $db=db();
+        $total = (int) $db->query('SELECT COUNT(*) FROM lockers')->fetchColumn();
+        $available = (int) $db->query("SELECT COUNT(*) FROM lockers WHERE status='Disponible'")->fetchColumn();
+        $assigned = (int) $db->query("SELECT COUNT(*) FROM lockers WHERE status='Asignado'")->fetchColumn();
+        $warning = (int) $db->query("SELECT COUNT(*) FROM lockers WHERE status IN ('Dañado','Bloqueado','Revisión')")->fetchColumn();
+        $lastMove = $db->query("SELECT id, action_name, person_name, created_at FROM movements ORDER BY id DESC LIMIT 1")->fetch();
+        $lastMovement = null;
+        if ($lastMove) {
+            $lastMovement = [
+                'id' => $lastMove['id'],
+                'action' => $lastMove['action_name'],
+                'person' => $lastMove['person_name'],
+                'at' => $lastMove['created_at']
+            ];
+        }
+        respond(['ok'=>true,'totalLockers'=>$total,'available'=>$available,'assigned'=>$assigned,'warning'=>$warning,'lastMovement'=>$lastMovement,'serverTime'=>date(DATE_ATOM)]);
     }
     if ($method==='GET' && $resource==='export') {
         $type=(string)($_GET['type']??'');$now=date('Y-m-d_H-i');
