@@ -89,8 +89,10 @@ function is_admin(): bool {
         $_SESSION['user']['role'] = $role;
         return $resolved = ($role === 'administrador');
     } catch (Throwable $e) {
+        // Fail-closed: si no se puede verificar MySQL, no conceder privilegios.
         error_log('LockerFlow role check: ' . $e->getMessage());
-        return $resolved = (($sessionUser['role'] ?? '') === 'administrador');
+        unset($_SESSION['user'], $_SESSION['last_seen'], $_SESSION['started_at']);
+        return $resolved = false;
     }
 }
 function require_login(bool $asJson = false): array {

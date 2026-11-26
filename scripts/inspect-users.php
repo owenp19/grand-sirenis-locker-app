@@ -1,13 +1,19 @@
 <?php
+/** Inspect-users.php · Grand Sirenis Locker App
+ * Solo lectura: lista los usuarios actuales en sirenis_locker_db.users.
+ * No modifica nada. Ejecutar desde CLI solo.
+ */
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') {
+    header('HTTP/1.1 403 Acceso no autorizado');
+    exit('Este script solo puede ejecutarse desde la línea de comandos.');
+}
+require_once dirname(__DIR__) . '/private/bootstrap.php';
+
 /**
- * Inspect-users.php — Grand Sirenis Locker App
  * Solo lectura: lista los usuarios actuales en sirenis_locker_db.users.
  * No modifica nada. Ejecutar antes de cualquier operación destructiva.
  */
-declare(strict_types=1);
-
-require_once dirname(__DIR__) . '/private/bootstrap.php';
-
 try {
     $pdo = db();
     $dbName = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();

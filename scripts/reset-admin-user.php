@@ -1,17 +1,15 @@
 <?php
-/**
- * reset-admin-user.php — Grand Sirenis Locker App
- * OPERACIÓN DESTRUCTIVA OPCIONAL: reemplaza un usuario por una cuenta administrativa.
- *
- * La contraseña NUNCA se escribe en el código ni en Git. Debe llegarse por
- * variable de entorno LOCKERFLOW_RESET_PASSWORD (mínimo 12 caracteres).
+/** reset-admin-user.php · Grand Sirenis Locker App
+ * Operaci�n destructiva opcional: reemplaza un usuario por una cuenta administrativa.
+ * La contraseña NUNCA se escribe en el c�digo ni en Git. Debe llegarse por
+ * variable de entorno LOCKERFLOW_RESET_PASSWORD (m�nimo 12 caracteres).
  *
  * REQUISITOS ANTES DE EJECUTAR:
  *   1. Respaldo reciente: scripts/backup-database.ps1
  *   2. Revisar usuarios actuales: php scripts/inspect-users.php
- *   3. Autorización expresa del responsable de la base.
+ *   3. Autorizaci�n expresa del responsable de la base.
  *
- * Uso:
+ * USO:
  *   $env:LOCKERFLOW_RESET_PASSWORD = 'ClaveLargaDe12+'
  *   php scripts/reset-admin-user.php --user=cuenta.deseada --role=administrador
  *   php scripts/reset-admin-user.php --user=cuenta.deseada --delete=cuenta.vieja
@@ -19,7 +17,10 @@
  * Sin --delete no borra nada; solo crea la cuenta si no existe.
  */
 declare(strict_types=1);
-
+if (PHP_SAPI !== 'cli') {
+    header('HTTP/1.1 403 Acceso no autorizado');
+    exit('Este script solo puede ejecutarse desde la línea de comandos.');
+}
 require_once dirname(__DIR__) . '/private/bootstrap.php';
 
 $options = getopt('', ['user:', 'delete::', 'role::', 'name::']);
@@ -47,7 +48,7 @@ if (strlen($newPassword) < 12 || strlen($newPassword) > 128) {
 }
 
 echo "============================================================\n";
-echo "  OPERACIÓN SOBRE sirenis_locker_db (requiere respaldo previo)\n";
+echo "  Operaci�n sobre sirenis_locker_db (requiere respaldo previo)\n";
 echo "============================================================\n";
 echo "Cuenta a crear/actualizar: $newUsername (rol: $newRole)\n";
 echo 'Cuenta a eliminar: ' . ($deleteUsername === null || $deleteUsername === '' ? '(ninguna)' : $deleteUsername) . "\n\n";
@@ -60,7 +61,7 @@ try {
         echo "  ID:{$u['id']} | {$u['username']} | {$u['display_name']} | {$u['role']}\n";
     }
     if (count($users) === 0 && $newRole !== 'administrador') {
-        // La primera cuenta del sistema debe ser administradora.
+        // La primera cuenta del sistema debe ser administrador.
         $newRole = 'administrador';
         echo "Aviso: primera cuenta del sistema; se asigna rol administrador.\n";
     }
@@ -92,7 +93,7 @@ try {
     }
 
     $pdo->commit();
-    echo "Operación completada. No se imprimió ninguna contraseña.\n";
+    echo "Operaci�n completada. No se imprimir� ninguna contrase�a.\n";
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
