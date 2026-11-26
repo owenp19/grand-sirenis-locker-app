@@ -1,6 +1,6 @@
 # Grand Sirenis Locker App · Gestión local de lockers para hotel
 
-Aplicación local, ligera y segura para gestionar los lockers (casilleros) de los colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron).
+Aplicación local, ligera y segura para gestionar los lockers (casilleros) de los colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron). **Interfaz renovada: nuevas pantallas de offboarding, configuración, historial y gestión de lockers con diseño mejorado.**
 
 <p align="center">
   <img src="public/assets/image/grand-sirenis-locker-app-logo-white.png" alt="Grand Sirenis Locker App" width="200">
@@ -9,23 +9,49 @@ Aplicación local, ligera y segura para gestionar los lockers (casilleros) de lo
 <div align="center">
   <img
     src="public/assets/image/grand-sirenis-locker-app-hero-page.png"
-    alt="Pantallazo 1"
+    alt="Pantallazo 1 - Dashboard"
     width="44%"
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
   />
   <img
     src="public/assets/image/grand-sirenis-locker-app-login-page.png"
-    alt="Pantallazo 2"
+    alt="Pantallazo 2 - Login"
     width="44%"
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
   />
   <img
     src="public/assets/image/grand-sirenis-locker-app-logo-white.png"
-    alt="Pantallazo 3"
+    alt="Pantallazo 3 - Icono"
     width="44%"
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
   />
 </div>
+
+---
+
+## 🆕 Nuevas pantallas (UI renovada)
+
+### Pantalla Salida de personal (#offboarding)
+- **Hero navy** con acento dorado y stepper visual de 3 pasos (Buscar → Revisar → Confirmar).
+- **Búsqueda** de colaboradores con normalización de acentos y mayúsculas.
+- **Previsualización** de lockers asignados con avatar y contador.
+- **Confirmación** con resumen de lockers a liberar y aviso destacado.
+- **Informe final** con datos del colaborador, lockers procesados y motivo.
+
+### Pantalla Configuración (#settings)
+- **Hero** con chips informativos (datos locales, privado por sesión, sincronización manual).
+- **Iconos de sección** con tonos del tema (azul, ámbar, dorado, teal, navy).
+- **Mejor jerarquía** y responsive para móvil.
+
+### Bitácora de movimientos (#history)
+- **Hero navy** con chips: total de registros, coincidencias y orden cronológico.
+- **Búsqueda** en tarjeta propia.
+- **Timeline** con icono por tipo de movimiento, pill del locker y responsable.
+
+### Gestión de lockers (#lockers)
+- **Hero navy** con contadores: total, disponibles y no disponibles.
+- **Pestañas** Inventario/Colaboradores tipo pill.
+- **Tabla** en tarjeta con hover por fila.
 
 ---
 

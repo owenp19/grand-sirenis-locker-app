@@ -60,3 +60,11 @@ App local, ligera y segura para gestionar lockers de colaboradores de un hotel: 
 - Tipografía: Roboto variable local en `public/assets/fonts/` con `font-display: swap`; sin Google Fonts.
 - Iconos: Lucide mediante sprite local; no cargar iconos que no se usen.
 - No crear temas independientes por pantalla; todo reutiliza UI_SYSTEM.md.
+
+## Cumplimiento y privacidad (Fase 1, 2026-11-25)
+- Documentos: docs/compliance/{DATA_INVENTORY,DATA_FLOW,PRIVACY_RISK_ASSESSMENT,SECURITY_GAPS,COMPLIANCE_ROADMAP}.md.
+- Datos: users (credenciales/rol), lockers (titular, departamento, supervisor, motivos), movements (historial + snapshots).
+- Riesgos críticos/altos: exposición real en Hostinger, transferencia a EE.UU., contratos responsable/encargado/subencargado, ARCO y retención.
+- Brechas altas: exportaciones sin rol, módulo offboarding con fallos, sin auditoría de exportaciones.
+- Infraestructura no verificada: plan/región/PHP/MySQL en producción, HTTPS real, respaldos y subprocesadores.
+- No se modificó código; no se declaró cumplimiento legal.

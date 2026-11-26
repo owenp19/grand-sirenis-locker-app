@@ -101,3 +101,8 @@ El informe permite imprimir o exportar a CSV usando las capacidades nativas del 
 - Realizar pruebas E2E con una base de datos aislada.
 - Probar los casos: colaborador con un locker, varios lockers, nombre inexistente, nombre con acentos, personas con nombres iguales, locker ya disponible, operator intentando acceder, solicitud sin CSRF, error durante la transacción, solicitud duplicada.
 - Verificar que el historial de movimientos permanezca intacto después de la operación.
+## Actualización UI (2026-11-25)
+- Nueva hoja offboarding.css cargada en index.php.
+- Hero navy, stepper de 3 pasos, tarjetas con iconos y resumen de confirmación.
+- Icono de sidebar cambiado de log-out a user.
+- Sin cambios de lógica ni endpoints.

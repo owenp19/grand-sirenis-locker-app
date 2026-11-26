@@ -575,18 +575,24 @@ const csrf = csrfMeta ? csrfMeta.content : '';
   function template() {
     return `
     <section class="settings-page-content">
-      <div class="page-head">
-        <div>
+      <header class="settings-hero">
+        <div class="settings-hero-copy">
           <span class="kicker">Configuración</span>
           <h1 tabindex="-1">Modo sin conexión y borradores</h1>
           <p class="subtext">Prepara cambios sin acceso al servidor y súbelos cuando vuelvas la conexión. Los borradores son privados de tu sesión.</p>
+          <div class="settings-hero-chips">
+            <span class="settings-chip">${ICON('database')} Datos locales</span>
+            <span class="settings-chip">${ICON('lock')} Privado por sesión</span>
+            <span class="settings-chip">${ICON('refresh-cw')} Sincronización manual</span>
+          </div>
         </div>
-      </div>
+        <span class="settings-hero-icon" aria-hidden="true">${ICON('wrench')}</span>
+      </header>
 
       <!-- Estado del servidor -->
       <section class="settings-section">
         <div class="settings-section-head">
-          <span class="settings-section-icon" aria-hidden="true">${ICON('database')}</span>
+          <span class="settings-section-icon tone-blue" aria-hidden="true">${ICON('database')}</span>
           <div>
             <h2>Estado del servidor</h2>
             <p>Conexión con PHP y MySQL en esta computadora.</p>
@@ -614,7 +620,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
       <!-- Preferencia offline -->
       <section class="settings-section">
         <div class="settings-section-head">
-          <span class="settings-section-icon" aria-hidden="true">${ICON('triangle-alert')}</span>
+          <span class="settings-section-icon tone-amber" aria-hidden="true">${ICON('triangle-alert')}</span>
           <div>
             <h2>Preparar cambios sin conexión</h2>
             <p>Crea observaciones y propuestas de estado sin acceso al servidor. Se sincronizan al volver la conexión.</p>
@@ -641,7 +647,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
       <!-- Borradores -->
       <section class="settings-section">
         <div class="settings-section-head">
-          <span class="settings-section-icon" aria-hidden="true">${ICON('pencil')}</span>
+          <span class="settings-section-icon tone-gold" aria-hidden="true">${ICON('pencil')}</span>
           <div>
             <h2>Borradores pendientes</h2>
             <p>Cambios preparados sin sincronizar (NO SINCRONIZADOS).</p>
@@ -694,7 +700,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
       <!-- Sincronización -->
       <section class="settings-section">
         <div class="settings-section-head">
-          <span class="settings-section-icon" aria-hidden="true">${ICON('refresh-cw')}</span>
+          <span class="settings-section-icon tone-teal" aria-hidden="true">${ICON('refresh-cw')}</span>
           <div>
             <h2>Sincronización</h2>
             <p>Revisa y aplica los borradores pendientes cuando el servidor esté disponible.</p>
@@ -721,7 +727,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
       <!-- Seguridad -->
       <section class="settings-section">
         <div class="settings-section-head">
-          <span class="settings-section-icon" aria-hidden="true">${ICON('shield-check')}</span>
+          <span class="settings-section-icon tone-navy" aria-hidden="true">${ICON('shield-check')}</span>
           <div>
             <h2>Seguridad y privacidad</h2>
             <p>Cómo se protegen tus borradores en este equipo.</p>

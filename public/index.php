@@ -22,6 +22,8 @@ $isAdmin = is_admin();
 <link rel="stylesheet" href="assets/css/components.css">
 <link rel="stylesheet" href="assets/css/motion.css">
 <link rel="stylesheet" href="assets/css/settings.css">
+<link rel="stylesheet" href="assets/css/offboarding.css">
+<link rel="stylesheet" href="assets/css/management.css">
 <title>Panel de control · Grand Sirenis Locker App</title>
 <script src="assets/js/app.js" defer></script>
 <script src="assets/js/settings.js" defer></script>
@@ -51,7 +53,7 @@ $isAdmin = is_admin();
     <button type="button" class="nav-btn" data-page="issues" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#triangle-alert"></use></svg></span><span class="nav-text">Incidencias</span><span class="nav-counter" id="issueBadge"></span></button>
     <button type="button" class="nav-btn" data-page="settings" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#wrench"></use></svg></span><span class="nav-text">Configuración</span></button>
     <?php if ($isAdmin): ?>
-    <button type="button" class="nav-btn" data-page="offboarding" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#log-out"></use></svg></span><span class="nav-text">Salida de personal</span></button>
+    <button type="button" class="nav-btn" data-page="offboarding" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#user"></use></svg></span><span class="nav-text">Salida de personal</span></button>
     <?php endif; ?>
   </nav>
   <div class="side-footer">

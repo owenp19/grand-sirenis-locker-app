@@ -55,7 +55,7 @@ function operator_name(array $data, array $user): string {
 
 function search_former_collaborators(PDO $db, string $query): array {
     $like = '%' . mb_strtolower($query ?? '') . '%';
-    $q = $db->prepare('SELECT id, username, display_name FROM users WHERE (display_name LIKE :q OR username LIKE :q) AND role="administrador" LIMIT 20');
+    $q = $db->prepare('SELECT id, username, display_name FROM users WHERE (display_name LIKE :q OR username LIKE :q) LIMIT 20');
     $q->execute([$like]);
     return $q->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -67,9 +67,11 @@ function get_lockers_by_person(PDO $db, string $personName): array {
 }
 
 function process_offboarding(PDO $db, array $user, array $lockerIds, string $reason, string $outcome, ?string $date, string $notes): array {
-    // 1. Volver a validar sesión administrativa
-    $sessionUser = $_SESSION['user'] ?? null;
-    if (!is_array($sessionUser) || ($sessionUser['role'] ?? '') !== 'administrador') fail('Sesión administrativa inválida.', 403);
+    // 1. Verificar rol administrador leyendo directamente de MySQL (no confiar solo en sesión)
+    $q = $db->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
+    $q->execute([(int) $user['id']]);
+    $role = $q->fetchColumn();
+    if (!is_string($role) || $role !== 'administrador') fail('No tiene permiso para realizar esta operación.', 403);
     // 2. Volver a consultar los registros directamente desde MySQL
     $placeholders = implode(',', array_map(fn($v) => '(?)', $lockerIds));
     $locked = $db->prepare("SELECT id, block_no, locker_no, status, person_name, department, assigned_date FROM lockers WHERE id IN ($placeholders)")->execute($lockerIds);
@@ -330,9 +332,9 @@ try {
         $_SESSION['user']['name']=$name;
         respond(['ok'=>true,'message'=>'Nombre actualizado correctamente.','user'=>['name'=>$name,'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
     }
-    if ($method==='POST' && $resource==='offboarding' && isset($_POST['action']) && $_POST['action']==='process') {
+    if ($method==='POST' && $resource==='offboarding' && isset($body['action']) && $body['action']==='process') {
         if (!$isAdmin) fail('No tiene permiso para realizar esta operación.', 403);
-        $lockerIds = $_POST['lockerIds'] ?? [];
+        $lockerIds = $body['lockerIds'] ?? [];
         $reason = field($body, 'reason', 100, true);
         $notes = field($body, 'notes', 1500);
         $outcome = field($body, 'outcome', 20);

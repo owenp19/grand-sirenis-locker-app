@@ -248,13 +248,58 @@ function lockersManagement(){
   const active=S.activeTab==='inventario'?'inventario':'colaboradores';
   const tabs=[{key:'inventario',label:'Inventario',icon:'boxes'},{key:'colaboradores',label:'Colaboradores',icon:'users'}];
   const tabHtml=tabs.map(t=>`<button type="button" class="gestion-tab${active===t.key?' is-active':''}" data-action="gestionTab" data-id="${t.key}">${icon(t.icon)} ${t.label}</button>`).join('');
-  return `${pageHeader('Gestión de lockers','Control de casilleros y personal','Administra el inventario de lockers y los colaboradores asignados desde una sola sección.')}<div class="gestion-tabs" role="tablist" aria-label="Sección de gestión">${tabHtml}</div>${active==='inventario'?tableLockers(true):tablePeople(true)}`;
+  const total=S.lockers.length;
+  const free=S.lockers.filter(l=>l.status==='Disponible').length;
+  const busy=total-free;
+  return `<div class="lockers-page">
+    <header class="page-hero page-hero--navy lockers-hero">
+      <div class="page-hero-copy">
+        <span class="kicker">Control de casilleros</span>
+        <h1 tabindex="-1">Gestión de lockers</h1>
+        <p class="subtext">Administra el inventario de lockers y los colaboradores asignados desde una sola sección.</p>
+        <div class="page-hero-chips">
+          <span class="page-chip">${icon('boxes')} ${nfmt(total)} lockers</span>
+          <span class="page-chip page-chip--success">${icon('circle-check')} ${nfmt(free)} disponibles</span>
+          <span class="page-chip page-chip--warn">${icon('users')} ${nfmt(busy)} no disponibles</span>
+        </div>
+      </div>
+      <div class="page-hero-actions">${button('exportInventory','Descargar CSV','btn','','download')}${button('assign','Asignar locker','btn btn-primary','','plus')}</div>
+    </header>
+    <div class="gestion-tabs" role="tablist" aria-label="Sección de gestión">${tabHtml}</div>
+    ${active==='inventario'?tableLockers(true):tablePeople(true)}
+  </div>`;
 }
 function movementsPage(){
   const filtered=S.movements.filter(e=>!S.historySearch||norm([e.type,e.locker,e.person,e.description,e.by,e.at].join(' ')).includes(norm(S.historySearch)));
   const per=45;S.pageNum=Math.min(S.pageNum,Math.max(1,Math.ceil(filtered.length/per)));
   const show=filtered.slice((S.pageNum-1)*per,S.pageNum*per);
-  return `${pageHeader('Bitácora de movimientos','Trazabilidad','Cada movimiento nuevo queda almacenado en MySQL.',button('exportHistory','Exportar historial','btn','','download'))}${filterControls('history')}<section class="table-wrap">${show.length?`<div class="history-list">${show.map(e=>`<article class="history-item"><h3>${esc(e.type)} · ${esc(e.locker)}</h3><p>${esc(e.description)}</p><small>${fmtTime(e.at)} · Responsable de sesión: ${esc(e.by)}</small></article>`).join('')}</div>`:`<div class="empty"><span class="empty-icon">${icon('history')}</span>No hay movimientos que coincidan con esta búsqueda.<br>Los registros históricos previos al sistema no se inventan.</div>`}${pager(filtered.length,per)}</section><p class="subtext history-note">Vista de hasta 500 movimientos recientes. La exportación CSV incluye hasta 50 000 registros, del más reciente al más antiguo.</p>`;
+  const typeIcons={'Asignación':'user-plus','Liberación':'user','Traslado':'arrow-right','Estado físico':'wrench','Corrección':'pencil','Validación':'check'};
+  return `<div class="history-page">
+    <header class="page-hero page-hero--navy history-hero">
+      <div class="page-hero-copy">
+        <span class="kicker">Trazabilidad</span>
+        <h1 tabindex="-1">Bitácora de movimientos</h1>
+        <p class="subtext">Cada movimiento nuevo queda almacenado en MySQL con su responsable y fecha.</p>
+        <div class="page-hero-chips">
+          <span class="page-chip">${icon('history')} ${nfmt(S.movements.length)} registros</span>
+          <span class="page-chip">${icon('search')} ${nfmt(filtered.length)} coincidencias</span>
+          <span class="page-chip">${icon('clock')} Más recientes primero</span>
+        </div>
+      </div>
+      <div class="page-hero-actions">${button('exportHistory','Exportar historial','btn btn-primary','','download')}</div>
+    </header>
+    <section class="page-toolbar">${filterControls('history')}</section>
+    <section class="history-panel">
+      <div class="panel-head">
+        <div class="panel-heading">
+          <span class="panel-icon" aria-hidden="true">${icon('history')}</span>
+          <div><h2>Actividad registrada</h2><p>${nfmt(filtered.length)} movimientos coinciden con la búsqueda actual.</p></div>
+        </div>
+      </div>
+      ${show.length?`<div class="history-list">${show.map(e=>`<article class="history-item"><span class="history-item-icon" aria-hidden="true">${icon(typeIcons[e.type]||'history')}</span><div class="history-item-body"><div class="history-item-top"><h3>${esc(e.type)}</h3><span class="history-locker">${esc(e.locker)}</span></div><p>${esc(e.description)}</p><small>${icon('clock')} ${fmtTime(e.at)} <span class="history-dot" aria-hidden="true"></span> Responsable: ${esc(e.by)}</small></div></article>`).join('')}</div>`:`<div class="empty"><span class="empty-icon">${icon('history')}</span>No hay movimientos que coincidan con esta búsqueda.<br>Los registros históricos previos al sistema no se inventan.</div>`}${pager(filtered.length,per)}
+    </section>
+    <p class="subtext history-note">Vista de hasta 500 movimientos recientes. La exportación CSV incluye hasta 50 000 registros, del más reciente al más antiguo.</p>
+  </div>`;
 }
 function issuesPage(){
   const list=issues();
@@ -269,30 +314,87 @@ function profileView(){
   return '<div class="profile-loading">Cargando perfil…</div>';
 }
 function offboardingView(){
-  if(!window.Profile) return '<div class="error-splash"><h2>Perfil no disponible</h2><p>El módulo de perfil no se cargó.</p></div>';
   return `<section class="offboarding-page">
-    <div class="page-head">
-      <span class="kicker">Salida de personal</span>
-      <h1 tabindex="-1">Registrar salida de colaborador</h1>
-    </div>
-    <section class="offboarding-section">
-      <div class="search-box">
-        <input type="text" class="search-input" placeholder="Nombre completo del colaborador" autocomplete="off">
-        <button type="button" class="btn btn-primary" data-action="offboarding-search">Buscar</button>
+    <header class="offboarding-hero">
+      <div class="offboarding-hero-copy">
+        <span class="kicker">Proceso administrativo</span>
+        <h1 tabindex="-1">Salida de personal</h1>
+        <p class="subtext">Libera los lockers de un colaborador que deja la empresa. La operación queda registrada en el historial y no elimina movimientos anteriores.</p>
       </div>
-      <div class="results-list hidden" id="offboardingResults"></div>
+      <span class="offboarding-hero-badge" aria-hidden="true">${icon('user','icon-lg')}<small>Recursos humanos</small></span>
+    </header>
+
+    <ol class="offboarding-steps" aria-label="Pasos del proceso">
+      <li class="is-active"><span class="offboarding-step-num">1</span><span class="offboarding-step-copy"><strong>Buscar</strong><small>Localiza al colaborador</small></span></li>
+      <li><span class="offboarding-step-num">2</span><span class="offboarding-step-copy"><strong>Revisar</strong><small>Verifica sus lockers</small></span></li>
+      <li><span class="offboarding-step-num">3</span><span class="offboarding-step-copy"><strong>Confirmar</strong><small>Libera y genera informe</small></span></li>
+    </ol>
+
+    <section class="offboarding-card">
+      <header class="offboarding-card-head">
+        <span class="offboarding-card-icon tone-gold" aria-hidden="true">${icon('search')}</span>
+        <div>
+          <h2>Buscar colaborador</h2>
+          <p>Escribe el nombre completo o parte de él. La búsqueda ignora acentos y mayúsculas.</p>
+        </div>
+      </header>
+      <div class="offboarding-card-body">
+        <div class="offboarding-search">
+          <label class="offboarding-label" for="offboardingQuery">Nombre del colaborador</label>
+          <div class="offboarding-search-row">
+            <div class="search-wrap offboarding-search-field">
+              ${icon('search')}
+              <input id="offboardingQuery" type="search" placeholder="Ej. María Fernanda López" autocomplete="off">
+            </div>
+            <button type="button" class="btn btn-primary" data-action="offboarding-search">${icon('search')} Buscar</button>
+          </div>
+        </div>
+        <div class="results-list hidden" id="offboardingResults"></div>
+      </div>
     </section>
-    <section class="offboarding-preview hidden" id="offboardingPreview">
-      <p>Colaborador: <strong id="offboardingPersonName"></strong></p>
-      <p class="small">Lockers a liberar: <span id="offboardingLockerCount">0</span></p>
+
+    <section class="offboarding-card offboarding-preview hidden" id="offboardingPreview">
+      <header class="offboarding-card-head">
+        <span class="offboarding-card-icon tone-teal" aria-hidden="true">${icon('check')}</span>
+        <div>
+          <h2>Lockers encontrados</h2>
+          <p>Revisa la información del colaborador antes de continuar.</p>
+        </div>
+      </header>
+      <div class="offboarding-card-body">
+        <div class="offboarding-person">
+          <span class="offboarding-avatar" aria-hidden="true">${icon('user')}</span>
+          <div class="offboarding-person-copy">
+            <strong id="offboardingPersonName"></strong>
+            <span>Colaborador seleccionado</span>
+          </div>
+          <span class="offboarding-count">Lockers <b id="offboardingLockerCount">0</b></span>
+        </div>
+      </div>
     </section>
-    <section class="offboarding-process hidden" id="offboardingProcess">
-      <input type="hidden" id="offboardingLockerIds" value="">
-      <p>¿Estás seguro de liberar los lockers seleccionados para <strong id="offboardingPersonName2"></strong>?</p>
-      <p class="small">Lockers a liberar: <span id="offboardingLockerCount2">0</span></p>
-      <button type="button" class="btn btn-confirm" data-action="offboarding-confirm">Confirmar liberación</button>
-      <button type="button" class="btn btn-cancel" data-action="offboarding-cancel">Cancelar</button>
+
+    <section class="offboarding-card offboarding-process hidden" id="offboardingProcess">
+      <header class="offboarding-card-head">
+        <span class="offboarding-card-icon tone-amber" aria-hidden="true">${icon('triangle-alert')}</span>
+        <div>
+          <h2>Confirmar liberación</h2>
+          <p>Esta acción deja los lockers disponibles y no se puede deshacer.</p>
+        </div>
+      </header>
+      <div class="offboarding-card-body">
+        <input type="hidden" id="offboardingLockerIds" value="">
+        <div class="offboarding-warning">¿Seguro que deseas liberar los lockers de <strong id="offboardingPersonName2"></strong>?</div>
+        <div class="offboarding-summary">
+          <div class="offboarding-summary-item"><span>Proceso</span><strong>Salida de personal</strong></div>
+          <div class="offboarding-summary-item"><span>Lockers a liberar</span><strong id="offboardingLockerCount2">0</strong></div>
+        </div>
+        <div class="offboarding-actions">
+          <button type="button" class="btn btn-primary" data-action="offboarding-confirm">${icon('check')} Confirmar liberación</button>
+          <button type="button" class="btn" data-action="offboarding-cancel">Cancelar</button>
+        </div>
+      </div>
     </section>
+
     <section class="offboarding-result hidden" id="offboardingResult"></section>
   </section>`;
 }

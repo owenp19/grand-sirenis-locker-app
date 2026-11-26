@@ -88,3 +88,8 @@ Estados mostrados claramente: Conectado / Sin acceso al servidor / Borradores pe
 ## 10. Pendientes
 - (Ninguno)
 - Pruebas pendientes: desconexiones, reconexiones, cierre de sesión, conflictos
+
+## Actualización UI (2026-11-25)
+- Hero con chips informativos y jerarquía visual por secciones.
+- Iconos de sección con tonos (azul, ámbar, dorado, teal, navy).
+- Estilos en settings.css; sin cambios de lógica.
