@@ -149,7 +149,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
   }
 
   /* ── Borradores ── */
-  let currentUser = null;
+  let currentUser = null; // {id, name, role} - identificación immutable del usuario autenticado
   let offlineEnabled = false;
   let drafts = [];
   let syncStatus = 'idle'; // idle, syncing, conflict, done
@@ -220,8 +220,11 @@ const csrf = csrfMeta ? csrfMeta.content : '';
   }
 
   function createDraftObj(type, lockerId, proposedStatus, notes) {
+    // Usar el ID immutable del usuario (currentUser.id) para evitar conflictos
+    // si dos personas tienen nombres iguales. Si currentUser es un string, usarlo directamente.
+    const userId = (currentUser && currentUser.id) !== undefined ? currentUser.id : (currentUser || '');
     return {
-      user: currentUser,
+      user: userId,
       type,
       lockerId: String(lockerId).trim(),
       proposedStatus: type === 'status_proposal' ? String(proposedStatus).trim() : '',
@@ -232,6 +235,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
   }
 
   async function addDraft(type, lockerId, proposedStatus, notes) {
+    if (!offlineEnabled) { notify('Las operaciones offline están desactivadas.', true); return; }
     const draft = createDraftObj(type, lockerId, proposedStatus, notes);
     await idbAddDraft(draft);
     await loadDrafts();
@@ -514,6 +518,12 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     // Toggle modo offline
     toggle.addEventListener('change', () => {
       offlineEnabled = toggle.checked;
+      // Si se desactiva offline, limpiar borradores pendientes localmente
+      if (!offlineEnabled) {
+        clearAllDrafts().then(() => {
+          notify('Borradores locales eliminados al desactivar modo offline.');
+        });
+      }
       render();
     });
 
@@ -521,6 +531,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     form.addEventListener('submit', async e => {
       e.preventDefault();
       if (!form.reportValidity()) return;
+      if (!offlineEnabled) { notify('Las operaciones offline están desactivadas. No se pueden crear borradores.', true); return; }
       const type = typeInput.value;
       const lockerId = lockerInput.value.trim();
       const proposedStatus = statusSelect ? statusSelect.value : '';
@@ -567,6 +578,8 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     if (container) container.removeEventListener('click', handleDraftsClick);
     container = null;
     currentUser = null;
+    // Limpiar borradores locales al desmontar (logout, cambio de usuario)
+    clearAllDrafts().catch(() => {});
     syncResultsData = [];
     persistentStorage = 'checking';
   }
