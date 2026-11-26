@@ -524,6 +524,52 @@ function handle(action,id=''){
   if(action==='install'&&S.installPrompt){const event=S.installPrompt;S.installPrompt=null;event.prompt();return}
   if(action==='logout'){document.querySelector('form[action="logout.php"]')?.submit();return}
 }
+
+// Funciones del módulo de salida de personal
+
+function offboardingSearch(){
+  const query = el('offboardingQuery')?.value.trim() || '';
+  if(!query){ notify('Ingresa un nombre para buscar.',true); return; }
+  const formData = new FormData(); formData.append('q', query);
+  request('offboarding', formData).then(result => {
+    if(!result.ok){ notify(result.message||'Error en la búsqueda.',true); return; }
+    const results = result.results || [];
+    const list = el('offboardingResults');
+    if(!list)return;
+    let html = '';
+    results.forEach(r => {
+      const name = r.display_name || r.username || '';
+      html += `<div class="result-item" data-username="${r.username}">${esc(name)}</div>`;
+    });
+    list.innerHTML = html || '<div class="no-results">No se encontraron colaboradores.</div>';
+    list.classList.remove('hidden');
+    if(results.length>0){ list.querySelectorAll('.result-item')[0]?.classList.add('highlight'); }
+    S.pageNum = 1;
+  }).catch(e=>{ notify(e.message||'Error inesperado.',true); });
+}
+
+function offboardingConfirm(){
+  const personName = el('offboardingPersonName2')?.textContent || '';
+  const lockerCount = el('offboardingLockerCount2')?.textContent || '0';
+  if(!personName){ notify('No hay colaborador seleccionado.',true); return; }
+  if(!confirm(`¿Seguro deseas liberar los lockers de ${personName}? Se liberarán ${lockerCount} lockers y la acción no se puede deshacer.`)){ return; }
+  const lockerIdsInput = el('offboardingLockerIds');
+  const lockerIds = lockerIdsInput ? lockerIdsInput.value : '';
+  if(!lockerIds){ notify('No hay lockers seleccionados para liberar.',true); return; }
+  const formData = new FormData(); formData.append('action','process'); formData.append('lockerIds', lockerIds);
+  formData.append('reason', el('offboardingReason')?.value || ''); formData.append('notes', el('offboardingNotes')?.value || '');
+  formData.append('outcome', 'Disponible'); formData.append('date', nowYYYYMMDD());
+  request('offboarding', formData).then(result => {
+    if(result.ok){
+      notify(result.message||'Operación completada.',false);
+      go('dashboard'); render();
+    }else{ notify(result.message||'Error en la confirmación.',true); }
+  }).catch(e=>{ notify(e.message||'Error inesperado.',true); });
+}
+
+function offboardingCancel(){
+  close(); render(); notify('Operación cancelada.');
+}
 document.addEventListener('click',e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return}const b=e.target.closest('[data-action]');if(b){handle(b.dataset.action,b.dataset.id||'');return}if(e.target.id==='overlay')close()});
 document.addEventListener('input',e=>{
   const t=e.target;

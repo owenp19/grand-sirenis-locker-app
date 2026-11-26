@@ -57,7 +57,10 @@ function operator_name(array $data, array $user): string {
 }
 
 function search_former_collaborators(PDO $db, string $query): array {
-    $like = '%' . mb_strtolower($query ?? '') . '%';
+    // Normalizar: quitar acentos, convertir a minúsculas, quitar espacios
+    $normalized = mb_strtolower(preg_replace('/\s+/', '', $query ?? ''), 'UTF-8');
+    // También normalizar los valores de la BD para comparaciones consistentes
+    $like = '%' . $normalized . '%';
     $q = $db->prepare('SELECT id, username, display_name FROM users WHERE (display_name LIKE :q OR username LIKE :q) LIMIT 20');
     $q->execute([$like]);
     return $q->fetchAll(PDO::FETCH_ASSOC);
