@@ -147,6 +147,32 @@
           </div>
         </div>
       </section>
+      <section class="settings-section">
+        <div class="settings-section-head">
+          <span class="settings-section-icon" aria-hidden="true">${ICON('key')}</span>
+          <div>
+            <h2>Cambiar contraseña</h2>
+            <p>Modifica tu contraseña actual. Se revocarán todas las sesiones activas.</p>
+          </div>
+        </div>
+        <div class="settings-section-body">
+          <div class="settings-field">
+            <label for="changeCurrentPassword">Contraseña actual</label>
+            <input type="password" id="changeCurrentPassword" placeholder="Escribe tu contraseña actual" maxlength="512" required>
+          </div>
+          <div class="settings-field">
+            <label for="changeNewPassword">Nueva contraseña</label>
+            <input type="password" id="changeNewPassword" placeholder="Escribe la nueva contraseña" maxlength="512" required>
+          </div>
+          <div class="settings-field">
+            <label for="changeConfirmPassword">Confirmar nueva contraseña</label>
+            <input type="password" id="changeConfirmPassword" placeholder="Confirma la nueva contraseña" maxlength="512" required>
+          </div>
+          <div class="settings-action">
+            <button type="button" class="btn btn-primary" id="changePasswordBtn">${ICON('rotate')}<span class="btn-label">Cambiar contraseña</span></button>
+          </div>
+        </div>
+      </section>
     </section>
     `;
   }
@@ -191,6 +217,38 @@
         nameInput.disabled = false;
         saveBtn.disabled = false;
         saveLabel.textContent = 'Guardar cambios';
+      }
+    });
+  }
+
+  // Change password form
+  const changePasswordBtn = container.querySelector('#changePasswordBtn');
+  if (changePasswordBtn) {
+    changePasswordBtn.addEventListener('click', async () => {
+      const current = document.getElementById('changeCurrentPassword')?.value || '';
+      const newPass = document.getElementById('changeNewPassword')?.value || '';
+      const confirm = document.getElementById('changeConfirmPassword')?.value || '';
+      if (!current || !newPass || !confirm) {
+        notify('Completa todos los campos.', true);
+        return;
+      }
+      if (newPass !== confirm) {
+        notify('Las contraseñas nuevas no coinciden.', true);
+        return;
+      }
+      const res = await fetchJson('profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf
+        },
+        body: JSON.stringify({ action: 'change-password', current_password: current, new_password: newPass, confirm_password: confirm })
+      });
+      if (res.ok && res.data?.ok) {
+        notify(res.data.message || 'Contraseña actualizada.', false);
+        setTimeout(() => { window.location.reload(); }, 1500);
+      } else {
+        notify(res.data?.message || 'Error al cambiar contraseña.', true);
       }
     });
   }

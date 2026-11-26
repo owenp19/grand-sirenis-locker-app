@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('administrador', 'operador') NOT NULL DEFAULT 'operador',
+  active TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
   last_login_at DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

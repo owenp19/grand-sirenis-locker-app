@@ -570,6 +570,59 @@ function offboardingConfirm(){
 function offboardingCancel(){
   close(); render(); notify('Operación cancelada.');
 }
+
+/** Cambiar contraseña desde el perfil.
+ *  - Verifica la contraseña actual.
+ *  - Confirma la nueva contraseña.
+ *  - Haz hash con password_hash.
+ *  - Revoca sesiones anteriores.
+ */
+function changePassword(){
+  const current = el('password_current')?.value || '';
+  const newPass = el('password_new')?.value || '';
+  const confirm = el('password_confirm')?.value || '';
+  if(!current || !newPass || !confirm) { notify('Completa todos los campos.',true); return; }
+  if(newPass !== confirm) { notify('Las contraseñas nuevas no coinciden.',true); return; }
+  // Enviar a API: acción change-password con current/新password
+  fetch('api.php?resource=profile&action=change-password', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+    body: JSON.stringify({ current_password: current, new_password: newPass, confirm_password: confirm })
+  })
+  .then(r => r.ok ? r.json() : { ok: false, message: 'Error de red' })
+  .then(data => {
+    if(data.ok){
+      notify(data.message||'Contraseña actualizada.',false);
+      // Recargar página para reflejar el nuevo estado
+      setTimeout(()=>{ window.location.reload(); }, 1500);
+    }else{
+      notify(data.message||'Error al cambiar contraseña.',true);
+    }
+  })
+  .catch(e => { notify(e.message||'Error inesperado.',true); });
+}
+
+/** Cerrar sesión forzada (revoca todas las sesiones del usuario). */
+function forceLogout(){
+  if(!confirm('¿Seguro deseas cerrar sesión y revocar todas las sesiones activas?')){ return; }
+  fetch('api.php?resource=users&action=force-logout', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+    body: JSON.stringify({})
+  })
+  .then(r => r.ok ? r.json() : { ok: false, message: 'Error de red' })
+  .then(data => {
+    if(data.ok){
+      notify(data.message||'Sesiones revocadas.',false);
+      window.location.href = 'login.php';
+    }else{
+      notify(data.message||'Error al cerrar sesión.',true);
+    }
+  })
+  .catch(e => { notify(e.message||'Error inesperado.',true); });
+}
 document.addEventListener('click',e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return}const b=e.target.closest('[data-action]');if(b){handle(b.dataset.action,b.dataset.id||'');return}if(e.target.id==='overlay')close()});
 document.addEventListener('input',e=>{
   const t=e.target;

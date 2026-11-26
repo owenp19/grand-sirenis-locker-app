@@ -64,6 +64,21 @@ function current_user(): ?array {
         unset($_SESSION['user'], $_SESSION['last_seen'], $_SESSION['started_at']);
         return null;
     }
+    // Verificar que la cuenta sigue activa en MySQL
+    $sessionUser = $_SESSION['user'];
+    try {
+        $q = db()->prepare('SELECT active FROM users WHERE id = ? LIMIT 1');
+        $q->execute([(int) ($sessionUser['id'] ?? 0)]);
+        $row = $q->fetch();
+        if (!$row || $row['active'] !== 1) {
+            // Cuenta desactivada: invalidar sesión
+            unset($_SESSION['user'], $_SESSION['last_seen'], $_SESSION['started_at']);
+            return null;
+        }
+    } catch (Throwable $e) {
+        // Si falla MySQL, mantener sesión activa por precaución
+        error_log('User active check error: ' . $e->getMessage());
+    }
     $_SESSION['last_seen'] = $now;
     return $_SESSION['user'];
 }
@@ -124,6 +139,34 @@ function valid_date(string $s, bool $required = false): ?string {
 function safe_user_agent(): bool {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '';
     return $ip === '127.0.0.1' || $ip === '::1';
+}
+
+/** Revoca todas las sesiones activas del usuario identificado por $userId. */
+function revoke_user_sessions(int $userId): bool {
+    try {
+        db()->prepare('UPDATE sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL')
+            ->execute([$userId]);
+        return true;
+    } catch (Throwable $e) {
+        error_log('Revoke sessions error: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/** Fuerza el cierre de sesión del usuario actual (regenera ID y borra datos). */
+function force_logout(): void {
+    session_regenerate_id(true);
+    unset($_SESSION['user'], $_SESSION['last_seen'], $_SESSION['started_at'], $_SESSION['csrf']);
+    // Marcar sesiones revocadas en BD si la tabla existe
+    try {
+        db()->prepare('UPDATE sessions SET revoked_at = NOW() WHERE user_id = (SELECT id FROM users WHERE username = ?) AND revoked_at IS NULL')
+            ->execute([$_SESSION['username'] ?? '']);
+    } catch (Throwable $e) {
+        // Tabla sessions puede no existir; no detener el logout
+        error_log('Force logout session mark error: ' . $e->getMessage());
+    }
+    header('Location: login.php');
+    exit;
 }
 
 /**

@@ -342,6 +342,43 @@ try {
         $_SESSION['user']['name']=$name;
         respond(['ok'=>true,'message'=>'Nombre actualizado correctamente.','user'=>['name'=>$name,'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
     }
+    if ($method==='POST' && $resource==='profile' && isset($body['action']) && $body['action']==='change-password') {
+        // Verify current password
+        $currentPassword = field($body, 'current_password', 512, true);
+        $newPassword = field($body, 'new_password', 512, true);
+        $confirmPassword = field($body, 'confirm_password', 512, true);
+        if ($newPassword !== $confirmPassword) fail('Las contraseñas nuevas no coinciden.', 400);
+        // Verify current password against hash in DB
+        $q = $db->prepare('SELECT password_hash FROM users WHERE id = ? LIMIT 1');
+        $q->execute([(int) $user['id']]);
+        $account = $q->fetch();
+        if (!$account || !password_verify($currentPassword, (string) $account['password_hash'])) fail('La contraseña actual es incorrecta.', 400);
+        // Generate new hash
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        // Update password in DB
+        $db->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$newHash, (int) $user['id']]);
+        // Revoke all previous sessions (force re-login)
+        revoke_user_sessions((int) $user['id']);
+        respond(['ok'=>true,'message'=>'Contraseña actualizada correctamente. Las sesiones anteriores han sido revocadas.','user'=>['name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
+    }
+    if ($method==='POST' && $resource==='users' && isset($body['action']) && $body['action']==='deactivate') {
+        // Only admins can deactivate users
+        if (!$isAdmin) fail('No tiene permiso para desactivar usuarios.', 403);
+        $targetId = (int) ($body['user_id'] ?? 0);
+        if ($targetId === 0) fail('ID de usuario inválido.', 400);
+        // Never deactivate the last admin
+        $q = $db->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
+        $q->execute([$targetId]);
+        $role = $q->fetchColumn();
+        if (!$role || $role !== 'administrador') fail('Usuario no encontrado o no es administrador.', 404);
+        // Check if there's another admin active
+        $adminCount = $db->query("SELECT COUNT(*) FROM users WHERE role='administrador' AND active=1")->fetchColumn();
+        if ($adminCount <= 1 && $role === 'administrador') fail('No se puede desactivar al último administrador activo.', 403);
+        // Deactivate user and revoke their sessions
+        $db->prepare('UPDATE users SET active = 0 WHERE id = ?')->execute([$targetId]);
+        revoke_user_sessions($targetId);
+        respond(['ok'=>true,'message'=>'Usuario desactivado correctamente. Las sesiones han sido revocadas.']);
+    }
     if ($method==='POST' && $resource==='offboarding' && isset($body['action']) && $body['action']==='process') {
         if (!$isAdmin) fail('No tiene permiso para realizar esta operación.', 403);
         $lockerIds = $body['lockerIds'] ?? [];
