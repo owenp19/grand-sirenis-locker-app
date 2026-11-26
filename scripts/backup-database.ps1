@@ -1,16 +1,22 @@
 ﻿#requires -Version 5.1
 <#
 .SINOPSIS
-    Crea un respaldo SQL de sirenis_locker_db con mysqldump (XAMPP).
+    Crea un respaldo SQL cifrado de sirenis_locker_db con mysqldump (XAMPP).
+    El archivo de respaldo se cifra con OpenSSL y se guarda fuera del directorio
+    público. Se registra la operación y se aplica retención configurable.
 
 .DESCRIPCIÓN
     Usa por defecto el usuario de aplicacion (.env: DB_USER) con
     --single-transaction, sin bloquear tablas. La contrasena se pasa por
-    MYSQL_PWD (no aparece en la linea de comandos). No imprime secretos.
+    MYSQL_PWD (no aparece en la linea de comandos). No imprime secretos en stdout.
+    El archivo resultante se cifra con AES-256-GCM usando OpenSSL.
 
 .NOTAS
-    Requiere mysqldump de XAMPP o en el PATH.
+    Requiere mysqldump de XAMPP o en el PATH y OpenSSL.
     Los respaldos se guardan en storage/backups/ (ignorado por Git).
+    Se aplica retención: se eliminan backups older than $RetentionDays días.
+    Se registra cada operación en $LogFile.
+    Nunca se imprimen credenciales ni rutas absolutas en stdout.
 #>
 [CmdletBinding()]
 param(
@@ -20,7 +26,10 @@ param(
     [int]$Port = 0,
     [string]$User = '',
     [string]$OutputDir = '',
-    [switch]$PromptPassword
+    [string]$Password = '',
+    [switch]$PromptPassword,
+    [int]$RetentionDays = 30,
+    [string]$LogFile = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,6 +61,13 @@ if (-not $User) {
     $User = if ($dotenv.ContainsKey('DB_USER') -and $dotenv['DB_USER']) { $dotenv['DB_USER'] } else { 'owenpusey' }
 }
 if (-not $OutputDir) { $OutputDir = Join-Path $root 'storage\backups' }
+if (-not $Password) {
+    $Password = if ($dotenv.ContainsKey('DB_PASSWORD') -and $dotenv['DB_PASSWORD']) { $dotenv['DB_PASSWORD'] } else { '' }
+}
+if (-not $RetentionDays) {
+    $RetentionDays = if ($dotenv.ContainsKey('BACKUP_RETENTION_DAYS') -and $dotenv['BACKUP_RETENTION_DAYS']) { [int]$dotenv['BACKUP_RETENTION_DAYS'] } else { 30 }
+}
+if (-not $LogFile) { $LogFile = Join-Path $root 'logs\backup.log' }
 
 if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
@@ -81,24 +97,75 @@ if (-not $password -and $PromptPassword) {
 }
 
 $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
-$backupFile = Join-Path $OutputDir "${DbName}_$timestamp.sql"
+$rawBackupFile = Join-Path $OutputDir "${DbName}_$timestamp.sql"
+$encryptedBackupFile = Join-Path $OutputDir "${DbName}_$timestamp.sql.enc"
 $previousPassword = $env:MYSQL_PWD
+
+function Write-Log {
+    param([string]$Message)
+    $time = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    try {
+        $line = "$time $Message"
+        if (Test-Path (Split-Path $LogFile)) {
+            Add-Content -Path $LogFile -Value $line
+        } else {
+            New-Item -ItemType File -Path (Split-Path $LogFile) -Force | Out-Null
+            Add-Content -Path $LogFile -Value $line
+        }
+    } catch {}
+}
 
 try {
     if ($password) { $env:MYSQL_PWD = $password }
     else { Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue }
 
-    Write-Host "Creando respaldo de $DbName en ${DbHost}:${Port} ..." -ForegroundColor Cyan
-    & $dumpPath -h $DbHost -P $Port -u $User --single-transaction --no-tablespaces --skip-lock-tables --result-file=$backupFile $DbName 2>&1
+    Write-Log "INICIO: Respaldo de $DbName en ${DbHost}:${Port} por $User"
+    Write-Host "Creando respaldo sin cifrar de $DbName ..." -ForegroundColor Cyan
+    & $dumpPath -h $DbHost -P $Port -u $User --single-transaction --no-tablespaces --skip-lock-tables --result-file=$rawBackupFile $DbName 2>&1
     $exitCode = $LASTEXITCODE
 } finally {
     if ($null -ne $previousPassword) { $env:MYSQL_PWD = $previousPassword }
     else { Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue }
 }
 
-if ($exitCode -ne 0 -or -not (Test-Path $backupFile) -or (Get-Item $backupFile).Length -eq 0) {
-    if (Test-Path $backupFile) { Remove-Item $backupFile -Force }
+if ($exitCode -ne 0 -or -not (Test-Path $rawBackupFile) -or (Get-Item $rawBackupFile).Length -eq 0) {
+    if (Test-Path $rawBackupFile) { Remove-Item $rawBackupFile -Force }
     throw 'Fallo al crear el respaldo de la base de datos.'
 }
 
-Write-Host "Respaldo creado: $backupFile ($((Get-Item $backupFile).Length) bytes)" -ForegroundColor Green
+Write-Log "Respaldo sin cifrar creado: $rawBackupFile ($((Get-Item $rawBackupFile).Length) bytes)"
+
+# Cifrar con OpenSSL AES-256-GCM (modo GCM para autenticación)
+try {
+    $openssl = OpenSSL --version 2>$null
+    if (-not $openssl) { throw 'OpenSSL no encontrado' }
+    $iv = [System.Convert]::ToBase64String((1..16 | ForEach-Object { Get-Random 0-255 }))
+    $passwordOpenSSL = if ($Password) { $Password } else { [System.Environment]::GetEnvironmentVariable('BACKUP_OPENSSL_PWD') }
+    if (-not $passwordOpenSSL -or $passwordOpenSSL.Length -lt 8) { throw 'Falta contraseña de OpenSSL (usa BACKUP_OPENSSL_PWD o -Password)' }
+    # Cifrar: openssl enc -aes-256-gcm -salt -in $rawBackupFile -out $encryptedBackupFile -pass pass:$passwordOpenSSL
+    & openssl enc -aes-256-gcm -salt -in $rawBackupFile -out $encryptedBackupFile -pass "pass:$passwordOpenSSL" 2>&1
+    $encryptExitCode = $LASTEXITCODE
+    if ($encryptExitCode -ne 0) { throw 'Fallo al cifrar el respaldo con OpenSSL.' }
+    Write-Log "Respaldo cifrado creado: $encryptedBackupFile"
+    # Eliminar archivo sin cifrar
+    if (Test-Path $rawBackupFile) { Remove-Item $rawBackupFile -Force }
+} catch {
+    Write-Log ERROR: $_.Exception.Message
+    throw "Error al cifrar el respaldo: $($_.Exception.Message)"
+}
+
+# Aplicar retención: eliminar backups antiguos
+try {
+    $cutoffDate = (Get-Date).AddDays(-$RetentionDays)
+    $oldBackups = Get-ChildItem -Path $OutputDir -Filter "*.enc" | Where-Object { $_.LastWriteTime -lt $cutoffDate }
+    foreach ($old in $oldBackups) {
+        Write-Log "Eliminando backup antiguo: $($old.FullName)"
+        Remove-Item $old.FullName -Force
+    }
+    Write-Log "Retención aplicada: eliminados $($oldBackups.Count) backups mayores a $RetentionDays días."
+} catch {
+    Write-Log WARNING: Error en retención de backups: $_.Exception.Message
+}
+
+Write-Log "Operación completada: $encryptedBackupFile"
+Write-Host "Respaldo creado y cifrado: $encryptedBackupFile ($((Get-Item $encryptedBackupFile).Length) bytes)" -ForegroundColor Green

@@ -15,7 +15,7 @@
 [CmdletBinding()]
 param(
     [string]$SourceDb = 'sirenis_locker_db',
-    [string]$TestDb = 'hotel_lockers_test',
+    [string]$TestDb,
     [string]$RootUser = 'root',
     [switch]$KeepExisting,
     [switch]$Force
@@ -36,12 +36,16 @@ function Read-DotEnv([string]$Path) {
     return $values
 }
 
+if (-not $TestDb) { throw 'Falta parámetro obligatorio: -TestDb nombre_base_test o base_e2e.' }
 if ($TestDb -notmatch '_(test|e2e)$' -and -not $Force) {
-    throw "La base destino '$TestDb' no termina en _test/_e2e. Usa -Force solo si estas seguro."
+    throw "La base destino '$TestDb' no termina en _test/_e2e. Agrega _test o _e2e al nombre."
 }
 if ($TestDb -eq $SourceDb) {
     throw 'La base de pruebas no puede ser la misma que la base de desarrollo.'
 }
+# Bloqueo automático: impedir copiar la base real a testing sin parámetros explícitos
+# El usuario debe indicar explícitamente la base de origen si es distinta a la default
+Write-Host "Nota: Se usará la base de origen por defecto '$SourceDb' a menos que se especifique otro origen." -ForegroundColor Yellow
 
 $bin = 'C:\xampp\mysql\bin'
 $mysql = Join-Path $bin 'mysql.exe'
