@@ -533,7 +533,7 @@ function close(){
   S.lastFocus=null;
 }
 function openAssign(id=''){const opts=available();if(!opts.length){notify('No hay lockers disponibles confirmados.',true);return}const lockers=[['auto','Asignación automática (primero disponible)'],...opts.map(l=>[l.id,`Locker ${l.id} · Bloque ${l.block}`])];
-  modal('Asignar un locker',`<div class="form-note">El sistema solo permite asignar casilleros confirmados como disponibles. Puedes seleccionar uno o usar asignación automática.</div><div class="form-grid">${item('Locker disponible','locker','select',select(lockers,id||'auto'),'required')}${today()}${item('Nombre y apellidos','name','text','','required maxlength="160"',true)}${item('Departamento','department','text','','required maxlength="120"')}${item('Jefe inmediato','supervisor','text','','maxlength="160"')}${item('Condición física','condition','select',select(['Bueno','Regular','Malo'],'Bueno'),'required')}${by()}${notes()}</div>`, 'assign','Confirmar asignación');
+  modal('Asignar un locker',`<div class="form-note">El sistema solo permite asignar casilleros confirmados como disponibles. Puedes seleccionar uno o usar asignación automática.</div><div class="form-grid">${item('Locker disponible','locker','select',select(lockers,id||'auto'),'required')}${today()}${item('Nombre y apellidos','name','text','','required maxlength="160"',true)}${item('Departamento','department','text','','required maxlength="120"')}${item('Jefe inmediato','supervisor','text','','maxlength="160"')}${item('Documento de identidad','document','text','','required maxlength="30"',true)}${item('Teléfono','phone','tel','','maxlength="30"')}${item('Condición física','condition','select',select(['Bueno','Regular','Malo'],'Bueno'),'required')}${by()}${notes()}</div>`, 'assign','Confirmar asignación');
 }
 function openRelease(id=''){const a=allocated();if(!a.length){notify('No hay casilleros asignados para liberar.',true);return}const id0=id||a[0].id;const statuses=[['Disponible','Disponible · llave entregada'],['Sin llave','Sin llave'],['Dañado','Dañado'],['Bloqueado','Mantener bloqueado']];
   modal('Liberar locker',`<div class="form-note warn">Al confirmar se retira la asignación del colaborador. El casillero queda disponible solo si está en buen estado y tiene llave. No se controla ninguna cerradura física.</div><div class="form-grid">${item('Locker asignado','locker','select',select(a.map(l=>[l.id,`${l.id} · ${l.name}`]),id0),'required')}${today()}${item('Motivo de salida','reason','select',select(['Salida del hotel','Renuncia','Fin de contrato','Cambio de locker','Otro'],'Salida del hotel'),'required')}${item('Estado al devolver','outcome','select',select(statuses,'Disponible'),'required')}${by()}${notes()}</div>`, 'release','Liberar y registrar',true);
@@ -579,21 +579,32 @@ function printCertificate(certData){
   const printWindow = window.open('', '_blank');
   if(!printWindow){notify('Permite las ventanas emergentes para imprimir el acta.',true);return}
   {
+    const e = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    const lockerNumber = e(certData.locker_number);
+    const blockNumber = e(certData.block_number);
+    const studentName = e(certData.student_name);
+    const documentNo = e(certData.document);
+    const phone = e(certData.phone);
+    const department = e(certData.department);
+    const supervisor = e(certData.supervisor);
+    const assignmentYear = e(certData.assignment_year);
+    const assignmentDate = e(certData.assignment_date);
+    const assignedBy = e(certData.assigned_by);
     printWindow.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Acta de asignación - Grand Sirenis</title>');
-    printWindow.document.write('<style>@media print{body{padding:20px;font-family:sans-serif};.certificate{width:595px;margin:0 auto;padding:20px;border:1px solid #dee2e3;}}.details{margin-top:30px;padding-top:30px;border-top:1px solid #dee2e3;}.btn{display:none;}</style>');
+    printWindow.document.write('<style>@page{size:A4;margin:16mm;}body{font-family:"Roboto",sans-serif;color:#111;margin:0;}.page{page-break-after:always;}.page:last-child{page-break-after:auto;}.header{text-align:center;margin-bottom:26px;}.header img{width:110px;height:auto;display:block;margin:0 auto 10px;}.title{color:#8b5a2b;font-size:17pt;margin:0 0 6px;font-weight:700;}.code{font-size:9pt;color:#666;margin:0 0 18px;}.field-table{width:100%;border-collapse:collapse;margin-top:10px;}.field-table td{border:1px solid #b9c4cf;padding:6px 8px;font-size:10pt;vertical-align:top;}.field-table td.k{background:#eef2f5;font-weight:700;width:42%;color:#1a3a5c;}.rules{margin-top:26px;border:1px solid #b9c4cf;padding:12px;font-size:9pt;color:#333;}.rules h3{margin:0 0 8px;font-size:10pt;color:#8b5a2b;}.sign{margin-top:30px;}.sign-line{display:flex;justify-content:space-between;margin-top:22px;font-size:9pt;color:#333;}.sign-line span{border-bottom:1px solid #111;min-width:170px;text-align:center;padding-bottom:3px;}.sign-note{font-size:8pt;color:#666;margin-top:8px;}@media print{body{padding:0;}}</style>');
     printWindow.document.write('</head><body>');
-    printWindow.document.write('<h1 style="text-align:center;color:#8b5a2b;margin-bottom:30px;">Grand Sirenis Resort</h1>');
-    printWindow.document.write('<div class="certificate" style="text-align:center;margin-bottom:40px;">');
-    printWindow.document.write('<svg width="100" height="100" style="margin:0 auto 20px;"><use href="assets/icons/lucide-sprite.svg#grand-sirenis-logo"></use></svg>');
-    printWindow.document.write('<h2 style="color:#8b5a2b;margin:10px 0 30px;">ACTA DE ASIGNACIÓN DE LOCKER</h2>');
-    printWindow.document.write('<p><strong>Número de locker:</strong> ' + certData.locker_number + ' · Bloque ' + certData.block_number + '</p>');
-    printWindow.document.write('<p><strong>Colaborador:</strong> ' + certData.student_name + '</p>');
-    printWindow.document.write('<p><strong>Departamento:</strong> ' + certData.department + '</p>');
-    printWindow.document.write('<p><strong>Año de asignación:</strong> ' + certData.assignment_year + '</p>');
+    printWindow.document.write('<div class="page">');
+    printWindow.document.write('<div class="header"><img src="assets/image/grand-sirenis-locker-app-logo-black-720.png" alt="Grand Sirenis San Andrés"><div class="title">ACTA DE ASIGNACIÓN DE LOCKER</div><div class="code">Código documental: 9-05</div></div>');
+    printWindow.document.write('<table class="field-table"><tr><td class="k">Casillero (número)</td><td>'+lockerNumber+'</td><td class="k">Bloque</td><td>'+blockNumber+'</td></tr>');
+    printWindow.document.write('<tr><td class="k">Colaborador (nombre y apellidos)</td><td>'+studentName+'</td><td class="k">Documento de identidad</td><td>'+documentNo+'</td></tr>');
+    printWindow.document.write('<tr><td class="k">Teléfono</td><td>'+phone+'</td><td class="k">Área / Departamento</td><td>'+department+'</td></tr>');
+    printWindow.document.write('<tr><td class="k">Jefe directo</td><td>'+supervisor+'</td><td class="k">Fecha de asignación</td><td>'+assignmentDate+'</td></tr>');
+    printWindow.document.write('<tr><td class="k">Año de asignación</td><td>'+assignmentYear+'</td><td class="k">Asignado por</td><td>'+assignedBy+'</td></tr>');
+    printWindow.document.write('</table>');
     printWindow.document.write('</div>');
-    printWindow.document.write('<div class="details">');
-    printWindow.document.write('<p>(Día de la constancia: ________)</p>');
-    printWindow.document.write('<p>(Quién Recibe: ________)</p>');
+    printWindow.document.write('<div class="page">');
+    printWindow.document.write('<div class="rules"><h3>Reglamento y condiciones de asignación</h3><p>Reproducir íntegramente el reglamento del formato físico original de Grand Sirenis San Andrés (referencia física pendiente de incorporar al repositorio antes de reproducir fielmente).</p></div>');
+    printWindow.document.write('<div class="sign"><div class="sign-line"><span>Día de la constancia: ________</span><span>Quién recibe (firma): ________</span></div><div class="sign-note">Campos de firma dejados vacíos conforme al formato acordado.</div></div>');
     printWindow.document.write('</div>');
     printWindow.document.write('</body></html>');
     printWindow.document.close();

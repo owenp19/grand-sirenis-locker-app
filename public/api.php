@@ -202,17 +202,22 @@ function do_action(PDO $db, array $user, string $action, array $d): array {
             $supervisor=field($d,'supervisor',160);
             $condition=status_allowed(field($d,'condition',30), ['Bueno','Regular','Malo']);
             $date=valid_date(field($d,'date',10,true),true);
-            $sql='UPDATE lockers SET status=?,person_name=?,department=?,supervisor=?,condition_label=?,assigned_date=?,delivered_by=?,reason=?,change_from=NULL,change_to=NULL,date_invalid=0 WHERE id=?';
-            $db->prepare($sql)->execute(['Asignado',$name,$dept,$supervisor,$condition,$date,$by,$notes,$l['id']]);
+            $document=field($d,'document',30,true);
+            $phone=field($d,'phone',30,true);
+            $sql='UPDATE lockers SET status=?,person_name=?,department=?,supervisor=?,condition_label=?,assigned_date=?,delivered_by=?,reason=?,document=?,phone=?,change_from=NULL,change_to=NULL,date_invalid=0 WHERE id=?';
+            $db->prepare($sql)->execute(['Asignado',$name,$dept,$supervisor,$condition,$date,$by,$notes,$document,$phone,$l['id']]);
             $after=get_lock($db,$l['id']);
             save_movement($db,$user,'Asignación',$l['id'],$name,"Entregado a $name ($dept) por $by. $notes",$l,$after);
             $message="Locker {$l['id']} asignado correctamente.";
-            // Preparar certData para el acta
+            // Preparar certData para el acta (identificado por el locker asignado, nunca por el último global)
             $year = $date ? date('Y', strtotime($date)) : date('Y');
             $certData = [
+                'locker_id' => $l['id'],
                 'locker_number' => $l['locker_no'],
                 'block_number' => $l['block_no'],
                 'student_name' => $name,
+                'document' => $document,
+                'phone' => $phone,
                 'department' => $dept,
                 'supervisor' => $supervisor,
                 'assignment_year' => $year,
@@ -388,28 +393,30 @@ try {
         }
         respond(['ok'=>true,'totalLockers'=>$total,'available'=>$available,'assigned'=>$assigned,'warning'=>$warning,'lastMovement'=>$lastMovement,'serverTime'=>date(DATE_ATOM)]);
     }
-    // Endpoint certificado de asignación: PDF de dos páginas con datos de MySQL
+    // Endpoint acta de asignación: genera/descarga el acta de un locker asignado identificado exactamente.
     if ($method==='POST' && $resource==='assignment-certificate') {
+        if (!$isAdmin) fail('No tiene permiso para generar el acta de asignación.', 403);
         try {
             $db=db();
-            // Obtener el locker asignado más reciente
-            $stmt = $db->prepare("SELECT l.id AS locker_id, l.block_no, l.locker_no, l.person_name, l.department, l.supervisor, l.assigned_date FROM lockers l WHERE l.status='Asignado' ORDER BY l.id DESC LIMIT 1");
-            $stmt->execute();
+            $lockerId = field($body, 'locker_id', 12, true);
+            // Consultar el locker asignado EXACTAMENTE por su identificador (nunca el último global).
+            $stmt = $db->prepare("SELECT l.id AS locker_id, l.block_no, l.locker_no, l.person_name, l.department, l.supervisor, l.assigned_date, l.document, l.phone FROM lockers l WHERE l.id=? AND l.status='Asignado' LIMIT 1");
+            $stmt->execute([$lockerId]);
             $assignment = $stmt->fetch();
-            if (!$assignment) { respond(['ok'=>false,'message'=>'No hay asignaciones encontradas.']); return; }
-            // Obtener datos del usuario que realizó la asignación (último movimiento)
-            $userStmt = $db->prepare("SELECT display_name FROM users WHERE id = ?");
-            // Obtener el actor del último movimiento si existe
-            $movementStmt = $db->prepare("SELECT actor_name FROM movements WHERE locker_id = ? ORDER BY id DESC LIMIT 1");
-            $movementStmt->execute([$assignment['locker_id']]);
+            if (!$assignment) { respond(['ok'=>false,'message'=>'No se encontró una asignación activa para ese casillero.']); return; }
+            // Obtener el actor del último movimiento de asignación de ese locker.
+            $movementStmt = $db->prepare("SELECT actor_name FROM movements WHERE locker_id = ? AND action_name='Asignación' ORDER BY id DESC LIMIT 1");
+            $movementStmt->execute([$lockerId]);
             $movement = $movementStmt->fetch();
             $actorName = $movement ? $movement['actor_name'] : 'Administrador';
-            // Preparar datos para el certificado
             $year = $assignment['assigned_date'] ? date('Y', strtotime($assignment['assigned_date'])) : date('Y');
             $certData = [
+                'locker_id' => $assignment['locker_id'],
                 'locker_number' => $assignment['locker_no'],
                 'block_number' => $assignment['block_no'],
                 'student_name' => $assignment['person_name'] ?? 'No asignado',
+                'document' => $assignment['document'] ?? '',
+                'phone' => $assignment['phone'] ?? '',
                 'department' => $assignment['department'] ?? 'No asignado',
                 'supervisor' => $assignment['supervisor'] ?? 'No asignado',
                 'assignment_year' => $year,
@@ -419,7 +426,7 @@ try {
             respond(['ok'=>true,'certData'=>$certData,'lockerId'=>$assignment['locker_id']]);
         } catch (Throwable $e) {
             error_log('Assignment certificate error: ' . $e->getMessage());
-            respond(['ok'=>false,'message'=>'Error al generar el certificado.']);
+            respond(['ok'=>false,'message'=>'Error al generar el acta de asignación.']);
         }
     }
     if ($method==='GET' && $resource==='export') {
@@ -491,18 +498,31 @@ try {
         if (!$isAdmin) fail('No tiene permiso para desactivar usuarios.', 403);
         $targetId = (int) ($body['user_id'] ?? 0);
         if ($targetId === 0) fail('ID de usuario inválido.', 400);
-        // Never deactivate the last admin
-        $q = $db->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
-        $q->execute([$targetId]);
-        $role = $q->fetchColumn();
-        if (!$role || $role !== 'administrador') fail('Usuario no encontrado o no es administrador.', 404);
-        // Check if there's another admin active
-        $adminCount = $db->query("SELECT COUNT(*) FROM users WHERE role='administrador' AND active=1")->fetchColumn();
-        if ($adminCount <= 1 && $role === 'administrador') fail('No se puede desactivar al último administrador activo.', 403);
-        // Deactivate user and revoke their sessions
-        $db->prepare('UPDATE users SET active = 0 WHERE id = ?')->execute([$targetId]);
-        revoke_user_sessions($targetId);
-        respond(['ok'=>true,'message'=>'Usuario desactivado correctamente. Las sesiones han sido revocadas.']);
+        $db->beginTransaction();
+        try {
+            // Bloquear la fila del usuario objetivo para evitar condiciones de carrera.
+            $q = $db->prepare('SELECT id, username, role, active FROM users WHERE id = ? FOR UPDATE');
+            $q->execute([$targetId]);
+            $account = $q->fetch();
+            if (!$account) fail('Usuario no encontrado.', 404);
+            if ((string) ($account['active'] ?? '1') === '0') fail('El usuario ya está desactivado.', 409);
+            // Evitar desactivar al último administrador activo (bloquea filas de admin activo).
+            if ((string) $account['role'] === 'administrador') {
+                $adminCount = (int) $db->query("SELECT id FROM users WHERE role='administrador' AND active=1 FOR UPDATE")->rowCount();
+                if ($adminCount <= 1) fail('No se puede desactivar al último administrador activo.', 403);
+            }
+            // Soft delete: no eliminar físicamente, conservar movimientos históricos.
+            $db->prepare('UPDATE users SET active = 0 WHERE id = ?')->execute([$targetId]);
+            // Registrar quién realizó la desactivación.
+            error_log('User deactivation: targetId='.$targetId.' targetUser='.(string)$account['username'].' deactivatedBy='.(string)($user['username']??''));
+            revoke_user_sessions($targetId);
+            $db->commit();
+            respond(['ok'=>true,'message'=>'Usuario desactivado correctamente. Las sesiones han sido revocadas.','deactivated_by'=>(string)($user['username']??'')]);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log('User deactivation error: ' . $e->getMessage());
+            fail('No se pudo desactivar el usuario.', 500);
+        }
     }
     if ($method==='POST' && $resource==='offboarding' && isset($body['action']) && $body['action']==='process') {
         if (!$isAdmin) fail('No tiene permiso para realizar esta operación.', 403);
