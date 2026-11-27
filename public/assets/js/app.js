@@ -452,6 +452,45 @@ function go(page,push=true,opts={}){
   el('view').querySelector('h1')?.focus({preventScroll:true});
   announce(`Vista: ${PAGES[page].title}`);
 }
+// Menú hamburguesa (tablet y móvil)
+function setMobileMenu(open){
+  const toggle=el('menuToggle');
+  const overlay=el('menuOverlay');
+  const sidebar=el('sidebar');
+  if(!toggle||!sidebar)return;
+  const wasOpen=document.body.classList.contains('menu-open');
+  document.body.classList.toggle('menu-open',open);
+  toggle.setAttribute('aria-expanded',open?'true':'false');
+  toggle.setAttribute('aria-label',open?'Cerrar menú de navegación':'Abrir menú de navegación');
+  if(overlay){if(open)overlay.removeAttribute('hidden');else overlay.setAttribute('hidden','')}
+  if(open&&!wasOpen){
+    const target=sidebar.querySelector('.nav-btn[aria-current="page"],.nav-btn.active,.nav-btn');
+    target?.focus({preventScroll:true});
+  }else if(!open&&wasOpen){
+    toggle.focus({preventScroll:true});
+  }
+}
+function toggleMobileMenu(open){
+  setMobileMenu(typeof open==='boolean'?open:!document.body.classList.contains('menu-open'));
+}
+function initMobileMenu(){
+  const toggle=el('menuToggle');
+  const sidebar=el('sidebar');
+  if(!toggle||!sidebar)return;
+  el('menuOverlay')?.removeAttribute('hidden');
+  toggle.addEventListener('click',()=>toggleMobileMenu());
+  el('sidebarClose')?.addEventListener('click',()=>toggleMobileMenu(false));
+  el('menuOverlay')?.addEventListener('click',()=>toggleMobileMenu(false));
+  el('nav')?.addEventListener('click',e=>{
+    if(e.target.closest('.nav-btn'))toggleMobileMenu(false);
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&document.body.classList.contains('menu-open')){e.preventDefault();toggleMobileMenu(false)}
+  });
+  window.addEventListener('resize',()=>{
+    if(window.innerWidth>980)setMobileMenu(false);
+  });
+}
 // Cargar scripts específicos por página de forma diferida
 function loadPageScripts(page){
   const loaded=S.loadedScripts||new Set();
@@ -520,9 +559,49 @@ async function submit(form){
   const submitButton=el('modalRoot').querySelector('button[type=submit]');
   if(submitButton){submitButton.disabled=true;submitButton.textContent='Guardando…'}
   form.setAttribute('aria-busy','true');
-  try{const result=await request(resource,payload);await load(false);broadcast({type:'data'});close();render();notify(result.message)}
+  try{const result=await request(resource,payload);await load(false);broadcast({type:'data'});if(result.ok){showCertificate(result.certData,result.message)}else{close();notify(result.message)}}
   catch(e){notify(e.message,true);if(submitButton){submitButton.disabled=false;submitButton.textContent='Volver a intentar'}}
   finally{form.removeAttribute('aria-busy')}
+}
+function showCertificate(certData,message){
+  const html = `<div class="certificate-result"><h2>¡Acta de asignación generada!</h2><p>${message}</p><div class="certificate-details"><p>Locker: ${certData.locker_number} · Bloque ${certData.block_number}</p><p>Colaborador: ${certData.student_name}</p><p>Departamento: ${certData.department}</p><p>Año: ${certData.assignment_year}</p></div><button type="button" class="btn btn-gold" data-action="print-certificate">${icon('printer')} Ver e imprimir acta</button></div>`;
+  el('modalRoot').innerHTML=`<div class="modal-backdrop" id="overlay"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><header class="modal-head"><h2 id="modalTitle">Certificado de asignación</h2><button type="button" class="modal-close" data-action="close" aria-label="Cerrar">${icon('x')}</button></header><div class="modal-body">${html}</div><footer class="modal-foot"><button type="button" class="btn btn-navy" data-action="close">Cerrar</button></footer></section></div>`;
+  document.body.classList.add('modal-open');
+  announce('Certificado de asignación generado');
+  // Add event listener for print button
+  const printBtn = el('modalRoot').querySelector('[data-action="print-certificate"]');
+  if(printBtn){printBtn.addEventListener('click',()=>printCertificate(certData));}
+}
+function printCertificate(certData){
+  // Close the modal first
+  close();
+  // Generate and print the certificate PDF
+  const printWindow = window.open('', '_blank');
+  if(!printWindow){notify('Permite las ventanas emergentes para imprimir el acta.',true);return}
+  {
+    printWindow.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Acta de asignación - Grand Sirenis</title>');
+    printWindow.document.write('<style>@media print{body{padding:20px;font-family:sans-serif};.certificate{width:595px;margin:0 auto;padding:20px;border:1px solid #dee2e3;}}.details{margin-top:30px;padding-top:30px;border-top:1px solid #dee2e3;}.btn{display:none;}</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write('<h1 style="text-align:center;color:#8b5a2b;margin-bottom:30px;">Grand Sirenis Resort</h1>');
+    printWindow.document.write('<div class="certificate" style="text-align:center;margin-bottom:40px;">');
+    printWindow.document.write('<svg width="100" height="100" style="margin:0 auto 20px;"><use href="assets/icons/lucide-sprite.svg#grand-sirenis-logo"></use></svg>');
+    printWindow.document.write('<h2 style="color:#8b5a2b;margin:10px 0 30px;">ACTA DE ASIGNACIÓN DE LOCKER</h2>');
+    printWindow.document.write('<p><strong>Número de locker:</strong> ' + certData.locker_number + ' · Bloque ' + certData.block_number + '</p>');
+    printWindow.document.write('<p><strong>Colaborador:</strong> ' + certData.student_name + '</p>');
+    printWindow.document.write('<p><strong>Departamento:</strong> ' + certData.department + '</p>');
+    printWindow.document.write('<p><strong>Año de asignación:</strong> ' + certData.assignment_year + '</p>');
+    printWindow.document.write('</div>');
+    printWindow.document.write('<div class="details">');
+    printWindow.document.write('<p>(Día de la constancia: ________)</p>');
+    printWindow.document.write('<p>(Quién Recibe: ________)</p>');
+    printWindow.document.write('</div>');
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    const triggerPrint=()=>{try{printWindow.focus();printWindow.print()}catch(e){}};
+    printWindow.addEventListener('afterprint',()=>{try{printWindow.close()}catch(e){}});
+    if(printWindow.document.readyState==='complete'){setTimeout(triggerPrint,250)}
+    else{printWindow.addEventListener('load',()=>setTimeout(triggerPrint,250),{once:true})}
+  }
 }
 async function refreshDashboard(){
   const btn=document.querySelector('[data-action="refresh"]');
@@ -552,7 +631,7 @@ function handle(action,id=''){
 function offboardingSearch(){
   const query = el('offboardingQuery')?.value.trim() || '';
   if(!query){ notify('Ingresa un nombre para buscar.',true); return; }
-  const formData = new FormData(); formData.append('q', query);
+  const formData = { action: 'search', q: query };
   request('offboarding', formData).then(result => {
     if(!result.ok){ notify(result.message||'Error en la búsqueda.',true); return; }
     const results = result.results || [];
@@ -578,9 +657,15 @@ function offboardingConfirm(){
   const lockerIdsInput = el('offboardingLockerIds');
   const lockerIds = lockerIdsInput ? lockerIdsInput.value : '';
   if(!lockerIds){ notify('No hay lockers seleccionados para liberar.',true); return; }
-  const formData = new FormData(); formData.append('action','process'); formData.append('lockerIds', lockerIds);
-  formData.append('reason', el('offboardingReason')?.value || ''); formData.append('notes', el('offboardingNotes')?.value || '');
-  formData.append('outcome', 'Disponible'); formData.append('date', nowYYYYMMDD());
+  const formData = {
+    action: 'process',
+    lockerIds: String(lockerIds).split(',').filter(Boolean),
+    person: personName,
+    reason: el('offboardingReason')?.value || '',
+    notes: el('offboardingNotes')?.value || '',
+    outcome: 'Disponible',
+    date: nowYYYYMMDD(),
+  };
   request('offboarding', formData).then(result => {
     if(result.ok){
       notify(result.message||'Operación completada.',false);
@@ -750,6 +835,9 @@ if(channel){
 }
 startStatusPolling();
 checkServerStatus();
+
+// Inicializar menú hamburguesa móvil
+initMobileMenu();
 
 load().catch(e=>{el('view').setAttribute('aria-busy','false');el('view').innerHTML=`<div class="error-splash"><h2>No se pudieron cargar los lockers</h2><p>${esc(e.message)}</p><button class="btn btn-primary" id="retry">${icon('refresh-cw')} Reintentar conexión</button><p><small>Comprueba Apache/PHP y MySQL. No se han modificado registros.</small></p></div>`;el('retry')?.addEventListener('click',()=>window.location.reload())});
 })();

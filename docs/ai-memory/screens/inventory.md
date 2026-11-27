@@ -17,3 +17,4 @@ Gestión de lockers (`#lockers`): pestañas Inventario y Colaboradores, búsqued
 ## Reglas
 - Los filtros y la paginación conservan su lógica existente.
 - No se modifican datos desde esta vista sin pasar por los modales existentes.
+- Transacción de asignación: `do_action()` confirma con `commit()` antes de retornar `certData` (acta); el movimiento de auditoría se guarda en la misma transacción y `SELECT FOR UPDATE` evita asignaciones duplicadas bajo concurrencia.

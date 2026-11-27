@@ -66,14 +66,38 @@ function operator_name(array $data, array $user): string {
     return $n !== '' ? $n : (($user['username'] ?? ''));
 }
 
+function normalize_name(string $s): string {
+    $s = mb_strtolower(trim((string) $s), 'UTF-8');
+    if (class_exists('Normalizer')) {
+        $s = Normalizer::normalize($s, Normalizer::FORM_D);
+        $s = preg_replace('/\p{Mn}/u', '', $s);
+    } else {
+        $s = strtr($s, 'áéíóúàèìòùâêîôûäëïöüñ', 'aeiouaeiouaeiouaeioun');
+    }
+    return preg_replace('/\s+/', '', $s);
+}
+// Busca titulares reales de lockers (nunca en la tabla users). Agrupa por titular para que el
+// administrador seleccione explícitamente en caso de homónimos. Nunca libera por coincidencia parcial.
 function search_former_collaborators(PDO $db, string $query): array {
-    // Normalizar: quitar acentos, convertir a minúsculas, quitar espacios
-    $normalized = mb_strtolower(preg_replace('/\s+/', '', $query ?? ''), 'UTF-8');
-    // También normalizar los valores de la BD para comparaciones consistentes
-    $like = '%' . $normalized . '%';
-    $q = $db->prepare('SELECT id, username, display_name FROM users WHERE (display_name LIKE :q OR username LIKE :q) LIMIT 20');
-    $q->execute([$like]);
-    return $q->fetchAll(PDO::FETCH_ASSOC);
+    $norm = normalize_name($query);
+    if ($norm === '') return [];
+    $q = $db->prepare("SELECT person_name, department, GROUP_CONCAT(id ORDER BY id) AS locker_ids, COUNT(*) AS locker_count FROM lockers WHERE person_name IS NOT NULL AND TRIM(person_name) <> '' AND status IN ('Asignado','Ocupado','Revisión') GROUP BY person_name, department");
+    $q->execute();
+    $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+    $out = [];
+    foreach ($rows as $r) {
+        $name = (string) ($r['person_name'] ?? '');
+        if ($name === '' || strpos(normalize_name($name), $norm) === false) continue;
+        $out[] = [
+            'display_name' => $name,
+            'username' => $name,
+            'department' => (string) ($r['department'] ?? ''),
+            'locker_ids' => array_map('intval', array_filter(explode(',', (string) ($r['locker_ids'] ?? '')))),
+            'locker_count' => (int) ($r['locker_count'] ?? 0),
+        ];
+    }
+    usort($out, fn($a, $b) => strcmp($a['display_name'], $b['display_name']));
+    return array_slice($out, 0, 20);
 }
 
 function get_lockers_by_person(PDO $db, string $personName): array {
@@ -82,69 +106,72 @@ function get_lockers_by_person(PDO $db, string $personName): array {
     return $q->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function process_offboarding(PDO $db, array $user, array $lockerIds, string $reason, string $outcome, ?string $date, string $notes): array {
-    // 1. Verificar rol administrador leyendo directamente de MySQL (no confiar solo en sesión)
+function process_offboarding(PDO $db, array $user, array $lockerIds, string $reason, string $outcome, ?string $date, string $notes, ?string $person = null): array {
+    // 1. Rol administrador leído directamente de MySQL (no confiar solo en sesión).
     $q = $db->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
     $q->execute([(int) $user['id']]);
     $role = $q->fetchColumn();
     if (!is_string($role) || $role !== 'administrador') fail('No tiene permiso para realizar esta operación.', 403);
-    // 2. Volver a consultar los registros directamente desde MySQL
-    $placeholders = implode(',', array_map(fn($v) => '(?)', $lockerIds));
-    $locked = $db->prepare("SELECT id, block_no, locker_no, status, person_name, department, assigned_date FROM lockers WHERE id IN ($placeholders)")->execute($lockerIds);
-    $lockers = $locked->fetchAll(PDO::FETCH_ASSOC);
-    if (count($lockers) !== count($lockerIds)) fail('Algunos lockers no fueron encontrados.', 404);
-    // 3. Comprobar que los lockers sigan asignados a la misma persona
-    $personName = '';
-    foreach ($lockers as $l) {
-        $p = $l['person_name'] ?? '';
-        if ($personName === '') $personName = $p;
-        if ($p !== $personName) {
-            fail('Los lockers no pertenecen a la misma persona o ya no están asignados.', 409);
-        }
+    // 2. Sanear y validar IDs: cadenas alfanuméricas (p. ej. "1-02"), únicas, lista no vacía.
+    $ids = [];
+    foreach ($lockerIds as $rawId) {
+        $i = (string) $rawId;
+        if ($i !== '' && preg_match('/^[A-Za-z0-9.\-]{1,12}$/', $i) && !in_array($i, $ids, true)) $ids[] = $i;
     }
-    // 4. Iniciar transacción
+    if (empty($ids)) fail('No hay lockers válidos seleccionados.', 400);
+    if ($reason === '') fail('Debe indicar un motivo de salida.', 400);
+    $outcome = status_allowed($outcome, ['Disponible','Sin llave','Dañado','Bloqueado']);
+    // 3. Iniciar transacción ANTES de bloquear los registros.
     $db->beginTransaction();
     try {
-        // 5. Bloquear los registros necesarios mediante SELECT FOR UPDATE
-        $placeholders2 = implode(',', array_map(fn($v) => '(?)', $lockerIds));
-        $lockedIds = $db->prepare("SELECT id FROM lockers WHERE id IN ($placeholders2) FOR UPDATE")->execute($lockerIds);
-        $toUpdate = $lockedIds->fetchAll(PDO::FETCH_ASSOC);
-        if (count($toUpdate) !== count($lockerIds)) fail('No se pudo bloquear algún locker.', 409);
-        // 6. Procesar cada locker
-        $by = $user['name'];
+        // 4. Bloquear los registros mediante SELECT FOR UPDATE con placeholders válidos.
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $locked = $db->prepare("SELECT id, block_no, locker_no, status, person_name, department FROM lockers WHERE id IN ($placeholders) FOR UPDATE");
+        $locked->execute($ids);
+        $rows = $locked->fetchAll(PDO::FETCH_ASSOC);
+        if (count($rows) !== count($ids)) fail('No se pudo bloquear algún locker.', 409);
+        // 5. Procesar cada locker dentro de la transacción, verificando estado y titular.
+        $by = $user['name'] ?? '';
         $releasedCount = 0;
         $alreadyAvailableCount = 0;
         $errorCount = 0;
         $errorLockers = [];
         $movementDescriptions = [];
-        foreach ($toUpdate as $l) {
+        foreach ($rows as $l) {
             $lid = $l['id'];
-            // Verificar estado actual antes de liberar
+            $actualPerson = (string) ($l['person_name'] ?? '');
             if ($l['status'] === 'Disponible') {
                 $alreadyAvailableCount++;
-                continue; // Ya está disponible, no procesar liberación
+                continue; // Ya está disponible, no procesar liberación.
             }
             if (!in_array($l['status'], ['Asignado', 'Ocupado', 'Revisión'], true)) {
-                $errorLockers[] = $lid . ': estado ' . $l['status'];
+                $errorLockers[] = "Locker $lid: estado {$l['status']}";
                 $errorCount++;
                 continue;
             }
-            // Registrar movimiento antes (snapshot)
+            // Nunca liberar basándose solo en coincidencia parcial de nombre: verificar titular explícito.
+            if ($person !== null && $actualPerson !== $person) {
+                $errorLockers[] = "Locker $lid: titular no coincide";
+                $errorCount++;
+                continue;
+            }
+            // Registrar movimiento antes (snapshot).
             $snapshotBefore = json_encode(['status'=>$l['status'],'person_name'=>$l['person_name'],'department'=>$l['department']], JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
-            // 7. Cambiar el estado de los lockers seleccionados a Disponible
+            // Cambiar el estado del locker a Disponible y limpiar campos del titular.
             $finalOutcome = $outcome === '' ? 'Disponible' : $outcome;
             $finalDate = $date !== null ? $date : date('Y-m-d');
-            $reasonFinal = $reason . ' (' . $finalDate . '). $notes';
+            // Corregir interpolación de observaciones (concatenación explícita).
+            $reasonFinal = $reason . ' (' . $finalDate . '). ' . $notes;
             $db->prepare('UPDATE lockers SET status=?, previous_owner=?, person_name=NULL, department=NULL, supervisor=NULL, assigned_date=NULL, delivered_by=NULL, reason=?, change_from=NULL, change_to=NULL, date_invalid=0 WHERE id=?')
-                ->execute([$finalOutcome, $personName, $reasonFinal, $lid]);
+                ->execute([$finalOutcome, $actualPerson, $reasonFinal, $lid]);
             $after = get_lock($db, $lid);
-            // Movimiento de liberación
-            $movDetail = "$personName: $reason · liberación $finalDate · $finalOutcome. Responsable: $by. $notes";
-            save_movement($db, $user, 'Liberación', $lid, $personName, $movDetail, ['status'=>$l['status'],'person_name'=>$l['person_name'],'department'=>$l['department']], $after);
+            // Movimiento de liberación (historial conservado).
+            $movDetail = "$actualPerson: $reason · liberación $finalDate · $finalOutcome. Responsable: $by. $notes";
+            save_movement($db, $user, 'Liberación', $lid, $actualPerson, $movDetail, ['status'=>$l['status'],'person_name'=>$l['person_name'],'department'=>$l['department']], $after);
             $releasedCount++;
             $movementDescriptions[] = $lid . ': ' . $movDetail;
         }
-        // 8. Confirmar la transacción
+        // 6. Confirmar la transacción.
         $db->commit();
         $message = "Operación completada: $releasedCount lockers liberados, $alreadyAvailableCount ya estaban disponibles";
         if ($errorCount > 0) {
@@ -152,7 +179,7 @@ function process_offboarding(PDO $db, array $user, array $lockerIds, string $rea
         }
         return ['ok'=>true, 'message'=>$message, 'released'=>$releasedCount, 'alreadyAvailable'=>$alreadyAvailableCount, 'errors'=>$errorCount, 'lockers'=>$movementDescriptions];
     } catch (Throwable $e) {
-        $db->rollBack();
+        if ($db->inTransaction()) $db->rollBack();
         error_log('Offboarding transaction error: ' . $e->getMessage());
         fail('No se pudo completar la operación de salida. Se realizó rollback.', 500);
     }
@@ -162,6 +189,7 @@ function do_action(PDO $db, array $user, string $action, array $d): array {
     try {
         $by = operator_name($d, $user);
         $notes = field($d,'notes',1500);
+        $certData = null;
         if ($action === 'assign') {
             $id = field($d,'locker',12);
             if ($id === 'auto') {
@@ -179,6 +207,18 @@ function do_action(PDO $db, array $user, string $action, array $d): array {
             $after=get_lock($db,$l['id']);
             save_movement($db,$user,'Asignación',$l['id'],$name,"Entregado a $name ($dept) por $by. $notes",$l,$after);
             $message="Locker {$l['id']} asignado correctamente.";
+            // Preparar certData para el acta
+            $year = $date ? date('Y', strtotime($date)) : date('Y');
+            $certData = [
+                'locker_number' => $l['locker_no'],
+                'block_number' => $l['block_no'],
+                'student_name' => $name,
+                'department' => $dept,
+                'supervisor' => $supervisor,
+                'assignment_year' => $year,
+                'assignment_date' => $date ?? date('d/m/Y'),
+                'assigned_by' => $by,
+            ];
         } elseif ($action === 'release') {
             $id=field($d,'locker',12,true); $l=need_locker(get_lock($db,$id));
             if ($l['status']!=='Asignado') fail('Este locker ya no está asignado.',409);
@@ -251,6 +291,9 @@ function do_action(PDO $db, array $user, string $action, array $d): array {
             $message="Verificación de $id guardada.";
         } else fail('Operación desconocida.',404);
         $db->commit();
+        if ($action === 'assign') {
+            return ['ok'=>true,'message'=>$message,'certData'=>$certData];
+        }
         return ['ok'=>true,'message'=>$message];
     } catch (Throwable $e) {
         if ($db->inTransaction()) $db->rollBack();
@@ -298,22 +341,29 @@ if ($method==='GET' && $resource==='health') {
 if ($method==='GET' && $resource==='profile') {
     respond(['ok'=>true, 'user'=>['name'=>$user['name'], 'username'=>$user['username'], 'role'=>$isAdmin?'administrador':'operador', 'isAdmin'=>$isAdmin]]);
 }
-// Búsqueda de antiguos colaboradores (solo GET, solo lectura).
-if ($method==='GET' && $resource==='offboarding' && $_GET['action']==='search') {
-    $q = $_GET['q'] ?? '';
-    if ($q === '') respond(['ok'=>false, 'message'=>'Parámetro de búsqueda vacío.'], 400);
-    $results = search_former_collaborators($db, $q);
-    respond(['ok'=>true, 'results'=>$results, 'query'=>$q]);
-}
-if ($method==='GET' && $resource==='offboarding' && $_GET['action']==='getLockers') {
-    $person = $_GET['person'] ?? '';
-    if ($person === '') respond(['ok'=>false, 'message'=>'Falta el parámetro person.'], 400);
-    $lockers = get_lockers_by_person($db, $person);
-    respond(['ok'=>true, 'lockers'=>$lockers]);
-}
 
 try {
     $db=db();
+    // Parsear cuerpo JSON una sola vez (el frontend envía POST con application/json).
+    $body = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($body)) $body = [];
+    // Rutas del módulo Salida de personal: lectura y proceso, solo administradores.
+    // Los parámetros viajan en query string (GET) o en el cuerpo JSON (POST).
+    $offAction = (string) ($_GET['action'] ?? $body['action'] ?? '');
+    if ($resource === 'offboarding' && $offAction === 'search') {
+        if (!$isAdmin) fail('No tiene permiso para buscar colaboradores.', 403);
+        $q = (string) ($_GET['q'] ?? $body['q'] ?? '');
+        if ($q === '') respond(['ok'=>false, 'message'=>'Parámetro de búsqueda vacío.'], 400);
+        $results = search_former_collaborators($db, $q);
+        respond(['ok'=>true, 'results'=>$results, 'query'=>$q]);
+    }
+    if ($resource === 'offboarding' && $offAction === 'getLockers') {
+        if (!$isAdmin) fail('No tiene permiso para consultar lockers.', 403);
+        $person = (string) ($_GET['person'] ?? $body['person'] ?? '');
+        if ($person === '') respond(['ok'=>false, 'message'=>'Falta el parámetro person.'], 400);
+        $lockers = get_lockers_by_person($db, $person);
+        respond(['ok'=>true, 'lockers'=>$lockers]);
+    }
     if ($method==='GET' && $resource==='bootstrap') {
         respond(['ok'=>true,'lockers'=>rows_lockers($db),'movements'=>rows_movements($db),
             'user'=>['name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin],
@@ -337,6 +387,40 @@ try {
             ];
         }
         respond(['ok'=>true,'totalLockers'=>$total,'available'=>$available,'assigned'=>$assigned,'warning'=>$warning,'lastMovement'=>$lastMovement,'serverTime'=>date(DATE_ATOM)]);
+    }
+    // Endpoint certificado de asignación: PDF de dos páginas con datos de MySQL
+    if ($method==='POST' && $resource==='assignment-certificate') {
+        try {
+            $db=db();
+            // Obtener el locker asignado más reciente
+            $stmt = $db->prepare("SELECT l.id AS locker_id, l.block_no, l.locker_no, l.person_name, l.department, l.supervisor, l.assigned_date FROM lockers l WHERE l.status='Asignado' ORDER BY l.id DESC LIMIT 1");
+            $stmt->execute();
+            $assignment = $stmt->fetch();
+            if (!$assignment) { respond(['ok'=>false,'message'=>'No hay asignaciones encontradas.']); return; }
+            // Obtener datos del usuario que realizó la asignación (último movimiento)
+            $userStmt = $db->prepare("SELECT display_name FROM users WHERE id = ?");
+            // Obtener el actor del último movimiento si existe
+            $movementStmt = $db->prepare("SELECT actor_name FROM movements WHERE locker_id = ? ORDER BY id DESC LIMIT 1");
+            $movementStmt->execute([$assignment['locker_id']]);
+            $movement = $movementStmt->fetch();
+            $actorName = $movement ? $movement['actor_name'] : 'Administrador';
+            // Preparar datos para el certificado
+            $year = $assignment['assigned_date'] ? date('Y', strtotime($assignment['assigned_date'])) : date('Y');
+            $certData = [
+                'locker_number' => $assignment['locker_no'],
+                'block_number' => $assignment['block_no'],
+                'student_name' => $assignment['person_name'] ?? 'No asignado',
+                'department' => $assignment['department'] ?? 'No asignado',
+                'supervisor' => $assignment['supervisor'] ?? 'No asignado',
+                'assignment_year' => $year,
+                'assignment_date' => $assignment['assigned_date'] ?? date('d/m/Y'),
+                'assigned_by' => $actorName,
+            ];
+            respond(['ok'=>true,'certData'=>$certData,'lockerId'=>$assignment['locker_id']]);
+        } catch (Throwable $e) {
+            error_log('Assignment certificate error: ' . $e->getMessage());
+            respond(['ok'=>false,'message'=>'Error al generar el certificado.']);
+        }
     }
     if ($method==='GET' && $resource==='export') {
         $type=(string)($_GET['type']??'');$now=date('Y-m-d_H-i');
@@ -376,7 +460,6 @@ try {
     if ($method!=='POST') fail('Ruta no permitida.',405);
     if (!csrf_valid((string)($_SERVER['HTTP_X_CSRF_TOKEN']??''))) fail('Sesión del formulario vencida. Recarga la página.',403);
     if ((int)($_SERVER['CONTENT_LENGTH']??0)>20000) fail('Formulario demasiado grande.',413);
-    $body=json_decode((string)file_get_contents('php://input'),true);
     if (!is_array($body)) fail('Solicitud JSON inválida.',400);
     if ($method==='POST' && $resource==='profile') {
         $name=field($body,'name',120,true);
@@ -423,14 +506,18 @@ try {
     }
     if ($method==='POST' && $resource==='offboarding' && isset($body['action']) && $body['action']==='process') {
         if (!$isAdmin) fail('No tiene permiso para realizar esta operación.', 403);
-        $lockerIds = $body['lockerIds'] ?? [];
+        // Normalizar lockerIds: array o string separada por comas; enteros positivos, únicos, no vacíos.
+        $rawIds = $body['lockerIds'] ?? [];
+        if (is_string($rawIds)) $rawIds = preg_split('/\s*,\s*/', $rawIds, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($rawIds)) $rawIds = [];
+        $person = field($body, 'person', 160);
         $reason = field($body, 'reason', 100, true);
         $notes = field($body, 'notes', 1500);
         $outcome = field($body, 'outcome', 20);
         $date = valid_date(field($body, 'date', 10), false);
-        if (empty($lockerIds)) fail('No hay lockers seleccionados.', 400);
+        if (empty($rawIds)) fail('No hay lockers seleccionados.', 400);
         if ($reason === '') fail('Debe indicar un motivo de salida.', 400);
-        $result = process_offboarding($db, $user, $lockerIds, $reason, $outcome, $date, $notes);
+        $result = process_offboarding($db, $user, $rawIds, $reason, $outcome, $date, $notes, $person);
         respond($result);
     }
     respond(do_action($db,$user,$resource,$body));

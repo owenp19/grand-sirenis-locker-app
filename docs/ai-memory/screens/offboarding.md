@@ -96,6 +96,16 @@ El informe permite imprimir o exportar a CSV usando las capacidades nativas del 
 - No se usan librerías externas ni CDN.
 - La CSS usa variables CSS definidas en `theme.css` y `app.css`.
 
+## 7. Reparación de la API de salida de personal (Fase 2)
+
+- `public/api.php`: `process_offboarding` inicializa la conexión antes de usarla; las rutas GET `search`/`getLockers` leen `$db` ya inicializado y exigen rol `administrador`.
+- La búsqueda consulta titulares reales de `lockers` (agrupados por titular) en vez de `users`, con normalización de acentos; los homónimos se resuelven mediante selección explícita del administrador. Nunca se libera por coincidencia parcial de nombre.
+- Se corrigieron `prepare()`/`execute()`/`fetchAll()` (el `execute` devuelve bool, no statement) y los placeholders `IN (?, ?, ...)` válidos.
+- Los IDs de locker se sanan (cadenas alfanuméricas, únicos, lista no vacía); nunca se ejecutan `DELETE` sobre movimientos históricos.
+- El proceso valida el rol administrador, inicia la transacción, bloquea con `SELECT FOR UPDATE`, verifica dentro de la transacción el estado y el titular de cada locker, conserva el historial de movimientos, aplica `rollback` ante cualquier fallo y genera informe de liberados / ya disponibles / errores.
+- Se corrigió la interpolación de observaciones (`$notes` se concatena correctamente).
+- `public/assets/js/app.js`: `offboardingSearch` y `offboardingConfirm` envían el cuerpo como JSON (`action`, `lockerIds`, `person`, `reason`, `notes`, `outcome`, `date`) para que los parámetros lleguen al backend.
+
 ## 6. Pendientes
 
 - Realizar pruebas E2E con una base de datos aislada.
