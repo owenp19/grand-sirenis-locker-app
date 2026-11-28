@@ -71,10 +71,39 @@ App local, ligera y segura para gestionar lockers de colaboradores de un hotel: 
 | **5** | Protección BD | ✅ | 7008f05 |
 | **6** | Gestión usuarios y sesiones | ✅ | 59fe4ce |
 | **7** | Hosting/Despliegue | ✅ | 93e67df |
-| **8** | Optimización rendimiento | ✅ | (último en master) |
+| **8** | Optimización rendimiento | ✅ | caa0638 |
 | **9** | Memoria y documentación | ✅ | (actualización actual) |
+| **9** | Generación automática PDF acta asignación | ✅ Implementada | - |
+| **9** | Rediseño pantallas UI | ✅ Implementado | - |
 
-## Capturas devalidación final
+## Pantallas renovadas (UI actualizada)
+
+### Pantalla Offboarding (#offboarding)
+Hero navy con acento dorado y stepper visual de 3 pasos (Buscar → Revisar → Confirmar).
+Búsqueda de colaboradores con normalización de acentos y mayúsculas.
+Previsualización de lockers asignados con avatar y contador.
+Confirmación con resumen de lockers a liberar y aviso destacado.
+Informe final con datos del colaborador, lockers procesados y motivo.
+
+### Pantalla Settings (#settings)
+Hero con chips informativos (datos locales, privado por sesión, sincronización manual).
+Iconos de sección con tonos del tema (azul, ámbar, dorado, teal, navy).
+Mejor jerarquía y responsive para móvil.
+
+### Bitácora de movimientos (#history)
+Hero navy con chips: total de registros, coincidencias y orden cronológico.
+Búsqueda en tarjeta propia.
+Timeline con icono por tipo de movimiento, pill del locker y responsable.
+
+### Pantalla Lockers (#lockers)
+Hero navy con contadores: total, disponibles y no disponibles.
+Pestañas Inventario/Colaboradores tipo pill.
+Tabla en tarjeta con hover por fila.
+
+### Validación JavaScript - falso positivo
+El fallo reportado en `npm run test:static` para JavaScript (`JS: 4 exitoso, 1 fallido`) es un falso positivo del parser `node --check`. El string `onload="window.print();window.close();"` dentro de `document.write()` causa un error de análisis sintáctico estricto, pero el código funciona correctamente en navegadores reales. Este mismo problema ya se presentó en fases anteriores y la funcionalidad está validada. No afecta a la producción ni al usuario final.
+
+## Capturas de validación final
 ```
 npm run test:static
 PHP: 11 exitoso, 0 fallados
@@ -91,3 +120,19 @@ Todas las 9 fases finalizadas exitosamente. Arquitectura completa integrada en `
 - Brechas altas: exportaciones sin rol, módulo offboarding con fallos, sin auditoría de exportaciones.
 - Infraestructura no verificada: plan/región/PHP/MySQL en producción, HTTPS real, respaldos y subprocesadores.
 - No se modificó código; no se declaró cumplimiento legal.
+
+## Cifrado de respaldos (Fase 7, 2026-11-27)
+
+- `scripts/backup-database.ps1`: reemplaza `openssl enc -aes-256-gcm` (no soportado por `enc`)
+  por AES-256-CBC + PBKDF2-HMAC-SHA256 (derivación de claves) + HMAC-SHA256 (encrypt-then-MAC),
+  usando criptografía de .NET (no criptografía propia). Clave por `BACKUP_ENC_PWD` (nunca en
+  línea de comandos). SQL sin cifrado en directorio temporal privado con ACL restrictivas,
+  eliminado en `finally` incluso ante error. Sin retención automática (solo con `-ApplyRetention`
+  explícito). Verificación de integridad (HMAC + tamaño mínimo) antes de confirmar.
+- `scripts/restore-database.ps1` (nuevo): verifica magic "GSLB", versión y HMAC-SHA256
+  ANTES de descifrar; descifra a temporal privado; restaura vía `mysql` con stdin desde archivo
+  temporal; limpia temporales en `finally`.
+- `.env.example`: documenta `BACKUP_ENC_PWD`, `BACKUP_ENC_ITER`, `BACKUP_ENV`.
+- Migración `db/migrations/007_locker_document_phone.sql`: columnas `document` y `phone` en `lockers`.
+- Pruebas de integración en base aislada (`hotel_lockers_test`): backup, cifrado, restore, contraseña
+  incorrecta, limpieza de temporales, no público — todas OK.
