@@ -149,27 +149,29 @@
       </section>
       <section class="settings-section">
         <div class="settings-section-head">
-          <span class="settings-section-icon" aria-hidden="true">${ICON('key')}</span>
+          <span class="settings-section-icon" aria-hidden="true">${ICON('key-round')}</span>
           <div>
             <h2>Cambiar contraseña</h2>
             <p>Modifica tu contraseña actual. Se revocarán todas las sesiones activas.</p>
           </div>
         </div>
         <div class="settings-section-body">
-          <div class="settings-field">
-            <label for="changeCurrentPassword">Contraseña actual</label>
-            <input type="password" id="changeCurrentPassword" placeholder="Escribe tu contraseña actual" maxlength="512" required>
+          <div class="profile-fields">
+            <div class="form-item">
+              <label for="changeCurrentPassword">Contraseña actual</label>
+              <input type="password" id="changeCurrentPassword" placeholder="Escribe tu contraseña actual" maxlength="512" required autocomplete="current-password">
+            </div>
+            <div class="form-item">
+              <label for="changeNewPassword">Nueva contraseña</label>
+              <input type="password" id="changeNewPassword" placeholder="Escribe la nueva contraseña" maxlength="512" required autocomplete="new-password">
+            </div>
+            <div class="form-item">
+              <label for="changeConfirmPassword">Confirmar nueva contraseña</label>
+              <input type="password" id="changeConfirmPassword" placeholder="Confirma la nueva contraseña" maxlength="512" required autocomplete="new-password">
+            </div>
           </div>
-          <div class="settings-field">
-            <label for="changeNewPassword">Nueva contraseña</label>
-            <input type="password" id="changeNewPassword" placeholder="Escribe la nueva contraseña" maxlength="512" required>
-          </div>
-          <div class="settings-field">
-            <label for="changeConfirmPassword">Confirmar nueva contraseña</label>
-            <input type="password" id="changeConfirmPassword" placeholder="Confirma la nueva contraseña" maxlength="512" required>
-          </div>
-          <div class="settings-action">
-            <button type="button" class="btn btn-primary" id="changePasswordBtn">${ICON('rotate')}<span class="btn-label">Cambiar contraseña</span></button>
+          <div class="profile-actions">
+            <button type="button" class="btn btn-primary" id="changePasswordBtn">${ICON('refresh-cw')}<span class="btn-label">Cambiar contraseña</span></button>
           </div>
         </div>
       </section>
