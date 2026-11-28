@@ -158,3 +158,18 @@ Todas las 9 fases finalizadas exitosamente. Arquitectura completa integrada en `
   302/401/403 en rutas funcionales son respuestas esperadas (auth, registro desactivado, logout con
   POST+CSRF), no errores.
 - No se modificó autenticación ni rutas funcionales. No se desplegó todavía.
+
+## Iconos oficiales PWA (Fase 12, 2026-11-27)
+
+- Fuente única: `public/assets/image/grand-sirenis-locker-app-icon-windows.png` (1254x1254, esquinas
+  transparentes). No se redibujó el logo; solo se redimensionó con GD manteniendo proporciones.
+- `public/icons/icon-192.png` (192x192) y `public/icons/icon-512.png` (512x512): generados desde el
+  icono oficial; reemplazan a los anteriores. `public/icons/icon-maskable-512.png` (512x512): misma
+  imagen dentro del 80% central (zona segura) sobre `#E7DFC9`.
+- Favicon `grand-sirenis-locker-app-favicon.png` regenerado a 64x64 desde el icono oficial.
+- Eliminado `public/icons/icon.svg` (antiguo icono verde `#0b9b85`) y su referencia en el SW.
+- `manifest.webmanifest`: solo 3 entradas con tamaños reales — 192 `any`, 512 `any`, 512 `maskable`.
+  Eliminada la entrada de 256x256 que apuntaba al original de 1254x1254.
+- `sw.js`: caché `grand-sirenis-locker-shell-v11` (v10 se purga automáticamente en `activate`);
+  precache actualizado con los iconos oficiales y el favicon. API y rutas de auth siguen excluidas.
+- `index.php` ya apuntaba `apple-touch-icon` a `icons/icon-192.png` (ahora oficial); sin cambios en HTML.

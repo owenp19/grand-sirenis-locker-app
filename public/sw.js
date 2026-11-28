@@ -1,7 +1,7 @@
 /* La PWA conserva los archivos visuales; nunca almacena respuestas de la API ni datos personales.
    Los recursos del shell usan red primero para que una actualización de CSS/JS nunca quede oculta
    detrás de la caché; la caché solo responde cuando no hay servidor local. */
-const CACHE = 'grand-sirenis-locker-shell-v10';
+const CACHE = 'grand-sirenis-locker-shell-v11';
 const ASSETS = [
   './offline.html',
   './assets/css/theme.css',
@@ -14,14 +14,15 @@ const ASSETS = [
   './assets/fonts/roboto-latin.woff2',
   './assets/icons/lucide-sprite.svg',
   './assets/image/grand-sirenis-locker-app-logo-black-720.png',
+  './assets/image/grand-sirenis-locker-app-favicon.png',
   './assets/js/app.js',
   './assets/js/auth.js',
   './assets/js/motion.js',
   './assets/js/settings.js',
   './assets/js/profile.js',
-  './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './manifest.webmanifest'
 ];
 
