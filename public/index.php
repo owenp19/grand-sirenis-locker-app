@@ -16,7 +16,7 @@ $isAdmin = is_admin();
 <link rel="icon" type="image/png" href="assets/image/grand-sirenis-locker-app-favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preload" href="assets/fonts/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/image/grand-sirenis-locker-app-logo-white-480.png" as="image" type="image/png">
+<link rel="preload" href="assets/image/grand-sirenis-locker-app-logo-white-480.png" as="image" type="image/png" fetchpriority="high">
 <link rel="stylesheet" href="assets/css/theme.css">
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="stylesheet" href="assets/css/components.css">
@@ -53,9 +53,8 @@ $isAdmin = is_admin();
     <button type="button" class="nav-btn" data-page="history" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#history"></use></svg></span><span class="nav-text">Movimientos</span></button>
     <button type="button" class="nav-btn" data-page="issues" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#triangle-alert"></use></svg></span><span class="nav-text">Incidencias</span><span class="nav-counter" id="issueBadge"></span></button>
     <button type="button" class="nav-btn" data-page="settings" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#wrench"></use></svg></span><span class="nav-text">Configuración</span></button>
-    <?php if ($isAdmin): ?>
     <button type="button" class="nav-btn" data-page="offboarding" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#user"></use></svg></span><span class="nav-text">Salida de personal</span></button>
-    <?php endif; ?>
+    <button type="button" class="nav-btn" data-page="profile" aria-controls="view"><span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="assets/icons/lucide-sprite.svg#at-sign"></use></svg></span><span class="nav-text">Mi perfil</span></button>
   </nav>
   <div class="side-footer">
     <div class="status-card">

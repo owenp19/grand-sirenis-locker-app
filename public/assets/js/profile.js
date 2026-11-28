@@ -69,14 +69,14 @@
     return currentUser;
   }
 
-  async function saveProfile(name) {
+  async function saveProfile(name, username) {
     const res = await fetchJson('profile', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': csrf
       },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name, username })
     });
     if (res.ok) {
       currentUser = res.data.user;
@@ -94,7 +94,7 @@
         <div>
           <span class="kicker">Mi perfil</span>
           <h1 tabindex="-1">Datos de usuario</h1>
-          <p class="subtext">Edita tu nombre de usuario. El nombre de usuario y el rol son de solo lectura.</p>
+          <p class="subtext">Edita tu nombre y usuario. El rol es de solo lectura.</p>
         </div>
       </div>
 
@@ -114,9 +114,9 @@
               <span class="form-hint">Se usa en firmas de movimientos y asignaciones.</span>
             </div>
             <div class="form-item">
-              <label>Nombre de usuario</label>
-              <input type="text" value="${esc(user.username)}" readonly>
-              <span class="form-hint">No se puede modificar.</span>
+              <label for="profileUsername">Nombre de usuario</label>
+              <input id="profileUsername" name="username" type="text" value="${esc(user.username)}" required minlength="3" maxlength="60" pattern="[A-Za-z0-9._-]{3,60}" autocomplete="username">
+              <span class="form-hint">3-60 caracteres: letras, números, punto, guion o guion bajo.</span>
             </div>
             <div class="form-item">
               <label>Rol</label>
@@ -140,7 +140,7 @@
         </div>
         <div class="settings-section-body">
           <div class="settings-note info">
-            ${ICON('lock')} La contraseña nunca se almacena en el frontend. Para cambiarla, contacta al administrador.
+            ${ICON('lock')} Tu contraseña nunca se almacena en el frontend; puedes cambiarla en el formulario inferior.
           </div>
           <div class="settings-note info">
             ${ICON('info')} Cerrar sesión elimina los borradores locales para proteger tu privacidad en equipos compartidos.
@@ -188,25 +188,34 @@
     container.querySelector('h1')?.focus({ preventScroll: true });
 
     const nameInput = container.querySelector('#profileName');
+    const usernameInput = container.querySelector('#profileUsername');
     nameInputEl = nameInput;
     const saveBtn = container.querySelector('#profileSave');
     const saveLabel = saveBtn?.querySelector('.btn-label');
-    if (!nameInput || !saveBtn || !saveLabel) return;
+    if (!nameInput || !usernameInput || !saveBtn || !saveLabel) return;
 
     saveBtn.addEventListener('click', async () => {
       const name = nameInput.value.trim();
+      const username = usernameInput.value.trim();
       if (!name) {
         notify('El nombre no puede estar vacío.', true);
         nameInput.focus();
         return;
       }
+      if (!/^[A-Za-z0-9._-]{3,60}$/.test(username)) {
+        notify('El usuario debe tener 3-60 caracteres válidos.', true);
+        usernameInput.focus();
+        return;
+      }
       saveBtn.disabled = true;
       saveLabel.textContent = 'Guardando…';
       nameInput.disabled = true;
+      usernameInput.disabled = true;
       try {
-        const ok = await saveProfile(name);
+        const ok = await saveProfile(name, username);
         if (ok) {
           nameInput.value = currentUser.name;
+          usernameInput.value = currentUser.username;
           if (window.App && typeof window.App.updateUser === 'function') {
             window.App.updateUser(currentUser);
           }
@@ -215,19 +224,22 @@
         notify('Error al guardar el perfil.', true);
       } finally {
         nameInput.disabled = false;
+        usernameInput.disabled = false;
         saveBtn.disabled = false;
         saveLabel.textContent = 'Guardar cambios';
       }
     });
+
+    bindChangePassword(container);
   }
 
-  // Change password form
-  const changePasswordBtn = container.querySelector('#changePasswordBtn');
-  if (changePasswordBtn) {
+  function bindChangePassword(root) {
+    const changePasswordBtn = root.querySelector('#changePasswordBtn');
+    if (!changePasswordBtn) return;
     changePasswordBtn.addEventListener('click', async () => {
-      const current = document.getElementById('changeCurrentPassword')?.value || '';
-      const newPass = document.getElementById('changeNewPassword')?.value || '';
-      const confirm = document.getElementById('changeConfirmPassword')?.value || '';
+      const current = root.querySelector('#changeCurrentPassword')?.value || '';
+      const newPass = root.querySelector('#changeNewPassword')?.value || '';
+      const confirm = root.querySelector('#changeConfirmPassword')?.value || '';
       if (!current || !newPass || !confirm) {
         notify('Completa todos los campos.', true);
         return;
@@ -236,19 +248,26 @@
         notify('Las contraseñas nuevas no coinciden.', true);
         return;
       }
-      const res = await fetchJson('profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrf
-        },
-        body: JSON.stringify({ action: 'change-password', current_password: current, new_password: newPass, confirm_password: confirm })
-      });
-      if (res.ok && res.data?.ok) {
-        notify(res.data.message || 'Contraseña actualizada.', false);
-        setTimeout(() => { window.location.reload(); }, 1500);
-      } else {
-        notify(res.data?.message || 'Error al cambiar contraseña.', true);
+      changePasswordBtn.disabled = true;
+      try {
+        const res = await fetchJson('profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf
+          },
+          body: JSON.stringify({ action: 'change-password', current_password: current, new_password: newPass, confirm_password: confirm })
+        });
+        if (res.ok && res.data?.ok) {
+          notify(res.data.message || 'Contraseña actualizada.', false);
+          setTimeout(() => { window.location.reload(); }, 1500);
+        } else {
+          notify(res.data?.message || 'Error al cambiar contraseña.', true);
+        }
+      } catch (err) {
+        notify('Error al cambiar contraseña.', true);
+      } finally {
+        changePasswordBtn.disabled = false;
       }
     });
   }

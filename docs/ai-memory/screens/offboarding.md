@@ -116,3 +116,5 @@ El informe permite imprimir o exportar a CSV usando las capacidades nativas del 
 - Hero navy, stepper de 3 pasos, tarjetas con iconos y resumen de confirmación.
 - Icono de sidebar cambiado de log-out a user.
 - Sin cambios de lógica ni endpoints.
+- Fase 14: acceso habilitado también para operadores creados por el administrador. Se eliminaron los
+  bloqueos de rol en `search`, `getLockers` y `process`; el botón de sidebar ya no depende de `$isAdmin`.

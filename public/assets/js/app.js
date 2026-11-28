@@ -43,11 +43,13 @@ function broadcast(msg){if(channel)channel.postMessage(msg)}
 function notify(msg,error=false){const x=el('toast');x.textContent=msg;x.classList.toggle('error',error);x.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>x.classList.remove('show'),4100)}
 function connection(state){el('connectionBar').hidden=!state}
 function announce(text){const region=el('viewStatus');if(!region)return;region.textContent='';setTimeout(()=>{region.textContent=text},40)}
-async function request(resource,body){const opts={credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}};
+async function request(resource,body,params){const opts={credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}};
   if(body){opts.method='POST';opts.headers['Content-Type']='application/json';opts.headers['X-CSRF-Token']=csrf;opts.body=JSON.stringify(body)}
   const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT);opts.signal=controller.signal;
+  let url=`api.php?resource=${encodeURIComponent(resource)}`;
+  if(params)Object.keys(params).forEach(k=>{url+=`&${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`});
   let res;
-  try{res=await fetch(`api.php?resource=${encodeURIComponent(resource)}`,opts)}
+  try{res=await fetch(url,opts)}
   catch(e){connection(true);throw Error(e.name==='AbortError'?'El servidor local no responde. Comprueba que PHP y MySQL estén encendidos.':'No hay conexión con PHP/MySQL. Comprueba que el servidor esté encendido.')}
   finally{clearTimeout(timeout)}
   if(res.status===401){window.location.href='login.php';throw Error('Sesión finalizada. Vuelve a iniciar sesión.')}
@@ -55,9 +57,27 @@ async function request(resource,body){const opts={credentials:'same-origin',cach
   if(!res.ok || !d.ok)throw Error(d.message||'No se pudo realizar la operación.');
   connection(false);return d;
 }
-async function load(refresh=true){const d=await request('bootstrap');S.lockers=d.lockers;S.movements=d.movements;S.user=d.user;S.serverTime=d.serverTime||'';S.loadedAt=Date.now();S.loaded=true;if(refresh){render();playViewEnter()}}
+let loadInFlight=null;
+async function load(refresh=true){
+  //Una sola petición bootstrap aunque lleguen varios eventos (broadcast, visibility, refresh).
+  if(loadInFlight)return loadInFlight;
+  loadInFlight=(async()=>{
+    const d=await request('bootstrap');
+    S.lockers=d.lockers||[];S.movements=d.movements||[];S.user=d.user||S.user;
+    S.serverTime=d.serverTime||'';S.loadedAt=Date.now();S.loaded=true;
+    S.historyPage=1;S.historyHasMore=(d.movements||[]).length>=20;
+  })();
+  try{await loadInFlight}finally{loadInFlight=null}
+  if(refresh){render();playViewEnter()}
+}
+async function loadHistoryPage(page){
+  const d=await request('dashboard',null,{page,limit:20});
+  S.movements=(S.movements||[]).concat(d.movements||[]);
+  S.historyPage=page;S.historyHasMore=(d.movements||[]).length>=20;
+  render();
+}
 function playViewEnter(){const view=el('view');if(!view)return;view.classList.remove('view-enter');void view.offsetWidth;view.classList.add('view-enter');clearTimeout(playViewEnter.timer);playViewEnter.timer=setTimeout(()=>view.classList.remove('view-enter'),1200)}
-function applyUser(user,emit=true){if(!user||!user.name)return;S.user.name=user.name;const n=el('topbarUserName');if(n)n.textContent=user.name;const i=el('topbarUserInitial');if(i)i.textContent=String(user.name).trim().charAt(0).toUpperCase()||'?';if(emit)broadcast({type:'user',name:user.name})}
+function applyUser(user,emit=true){if(!user||!user.name)return;S.user.name=user.name;if(user.username)S.user.username=user.username;const n=el('topbarUserName');if(n)n.textContent=user.name;const i=el('topbarUserInitial');if(i)i.textContent=String(user.name).trim().charAt(0).toUpperCase()||'?';if(emit)broadcast({type:'user',name:user.name,username:S.user.username})}
 window.App={updateUser(user){applyUser(user,true)}};
 function count(){const c=Object.fromEntries(STATUSES.map(x=>[x,0]));S.lockers.forEach(l=>c[l.status]=(c[l.status]||0)+1);return {total:S.lockers.length,...c}}
 function get(id){return S.lockers.find(l=>l.id===id)}
@@ -296,9 +316,9 @@ function movementsPage(){
           <div><h2>Actividad registrada</h2><p>${nfmt(filtered.length)} movimientos coinciden con la búsqueda actual.</p></div>
         </div>
       </div>
-      ${show.length?`<div class="history-list">${show.map(e=>`<article class="history-item"><span class="history-item-icon" aria-hidden="true">${icon(typeIcons[e.type]||'history')}</span><div class="history-item-body"><div class="history-item-top"><h3>${esc(e.type)}</h3><span class="history-locker">${esc(e.locker)}</span></div><p>${esc(e.description)}</p><small>${icon('clock')} ${fmtTime(e.at)} <span class="history-dot" aria-hidden="true"></span> Responsable: ${esc(e.by)}</small></div></article>`).join('')}</div>`:`<div class="empty"><span class="empty-icon">${icon('history')}</span>No hay movimientos que coincidan con esta búsqueda.<br>Los registros históricos previos al sistema no se inventan.</div>`}${pager(filtered.length,per)}
+      ${show.length?`<div class="history-list">${show.map(e=>`<article class="history-item"><span class="history-item-icon" aria-hidden="true">${icon(typeIcons[e.type]||'history')}</span><div class="history-item-body"><div class="history-item-top"><h3>${esc(e.type)}</h3><span class="history-locker">${esc(e.locker)}</span></div><p>${esc(e.description)}</p><small>${icon('clock')} ${fmtTime(e.at)} <span class="history-dot" aria-hidden="true"></span> Responsable: ${esc(e.by)}</small></div></article>`).join('')}</div>`:`<div class="empty"><span class="empty-icon">${icon('history')}</span>No hay movimientos que coincidan con esta búsqueda.<br>Los registros históricos previos al sistema no se inventan.</div>`}${S.historyHasMore?`<div class="history-more">${button('historyMore','Cargar 20 más','btn btn-sm','','chevron-down')}</div>`:''}${pager(filtered.length,per)}
     </section>
-    <p class="subtext history-note">Vista de hasta 500 movimientos recientes. La exportación CSV incluye hasta 50 000 registros, del más reciente al más antiguo.</p>
+    <p class="subtext history-note">Los movimientos se cargan por páginas de 20. La exportación CSV incluye hasta 50 000 registros, del más reciente al más antiguo.</p>
   </div>`;
 }
 function issuesPage(){
@@ -503,7 +523,7 @@ function loadPageScripts(page){
   scripts.forEach(src=>{
     if(loaded.has(src))return;// ya cargado
     const el=document.createElement('script');
-    el.src=src;el.defer=true;el.onload=()=>loaded.add(src);
+    el.src=src;el.defer=true;el.onload=()=>{loaded.add(src);if(S.page===page)render()};
     el.onerror=()=>{// script no existente, continuar sin error
       document.head.removeChild(el);
     };
@@ -622,7 +642,7 @@ async function refreshDashboard(){
   finally{const next=document.querySelector('[data-action="refresh"]');if(next){next.disabled=false;next.removeAttribute('aria-busy')}}
 }
 function handle(action,id=''){
-  if(action==='close'){close();return}if(action==='assign'){openAssign(id);return}if(action==='release'){openRelease(id);return}if(action==='transfer'){openTransfer(id);return}if(action==='status'){openStatus(id);return}if(action==='edit'){openEdit(id);return}if(action==='reconcile'){openReconcile(id);return}if(action==='detail'){openDetail(id);return}if(action==='offboarding-search'){offboardingSearch();return}if(action==='offboarding-confirm'){offboardingConfirm();return}if(action==='offboarding-cancel'){offboardingCancel();return}
+  if(action==='close'){close();return}if(action==='assign'){openAssign(id);return}if(action==='release'){openRelease(id);return}if(action==='transfer'){openTransfer(id);return}if(action==='status'){openStatus(id);return}if(action==='edit'){openEdit(id);return}if(action==='reconcile'){openReconcile(id);return}if(action==='detail'){openDetail(id);return}if(action==='offboarding-search'){offboardingSearch();return}if(action==='offboarding-confirm'){offboardingConfirm();return}if(action==='offboarding-cancel'){offboardingCancel();return}if(action==='historyMore'){loadHistoryPage((S.historyPage||1)+1).catch(()=>notify('No se pudieron cargar más movimientos.',true));return}
   if(action==='block'){go('lockers',true,{block:id});return}
   if(action==='filterStatus'){go('lockers',true,{filter:id});return}
   if(action==='viewAvailable'){go('lockers',true,{filter:'Disponible'});return}
@@ -825,22 +845,29 @@ async function checkServerStatus(){
   const ping=await statusFetch('ping');
   if(!ping||!ping.ok){S.serverStatus='no-server';updateServerStatusIndicator();return}
   const health=await statusFetch('health');
-  if(!health||!health.ok){S.serverStatus='no-server';updateServerStatusIndicator();return}
-  if(!health.php){S.serverStatus='no-mysql';updateServerStatusIndicator();return}
-  S.serverStatus='connected';
-  updateServerStatusIndicator();
+  if(!health){S.serverStatus='no-server';updateServerStatusIndicator();return}
+  let data=null;try{data=await health.json()}catch(_){}
+  //ok=false con php=true y database=false significa MySQL caído, no PHP.
+  if(data&&data.php===true&&data.database===false){S.serverStatus='no-mysql';updateServerStatusIndicator();return}
+  if(health.ok&&data&&data.php===true&&data.database===true){S.serverStatus='connected';updateServerStatusIndicator();return}
+  S.serverStatus='no-server';updateServerStatusIndicator();
 }
 
 let statusTimer=null;
 function startStatusPolling(){if(statusTimer)return;statusTimer=setInterval(()=>{if(!document.hidden)checkServerStatus()},30000)}
 function stopStatusPolling(){if(statusTimer){clearInterval(statusTimer);statusTimer=null}}
-document.addEventListener('visibilitychange',()=>{if(document.hidden){stopStatusPolling();return}startStatusPolling();checkServerStatus()});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){stopStatusPolling();return}
+  startStatusPolling();checkServerStatus();
+  if(S.loaded&&Date.now()-S.loadedAt>60000)load(false).then(()=>render()).catch(()=>{})
+});
 
 if(channel){
   channel.addEventListener('message',e=>{
     const msg=e.data||{};
-    if(msg.type==='user'){applyUser({name:msg.name},false);return}
+    if(msg.type==='user'){applyUser({name:msg.name,username:msg.username},false);return}
     if(msg.type==='serverStatus'){S.serverStatus=msg.status;updateServerStatusIndicator(false);return}
+    if(document.hidden)return; // no recargar datos en pestañas ocultas
     if(msg.type==='data'){load(false).then(()=>render()).catch(()=>{})}
   });
 }

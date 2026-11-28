@@ -17,3 +17,5 @@ Bitácora de movimientos (`#history`): historial de asignaciones, liberaciones, 
 ## Reglas
 - No inventar registros históricos previos al sistema.
 - Solo lectura; la exportación usa `data-action="exportHistory"`.
+- Fase 14: paginación servidor en lotes de 20 (`dashboard?page=N&limit=20`, `LIMIT ? OFFSET ?` preparado)
+  con botón "Cargar 20 más". La exportación CSV sigue siendo completa hasta 50 000 registros.

@@ -1,7 +1,7 @@
 /* La PWA conserva los archivos visuales; nunca almacena respuestas de la API ni datos personales.
    Los recursos del shell usan red primero para que una actualización de CSS/JS nunca quede oculta
    detrás de la caché; la caché solo responde cuando no hay servidor local. */
-const CACHE = 'grand-sirenis-locker-shell-v11';
+const CACHE = 'grand-sirenis-locker-shell-v12';
 const ASSETS = [
   './offline.html',
   './assets/css/theme.css',
@@ -40,35 +40,37 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Solo rutas estáticas exactas pueden entrar en Cache Storage.
+// Ninguna respuesta de API, sesión ni dato privado se almacena.
+const STATIC_PATHS = new Set(ASSETS.map((a) => new URL(a, self.location.href).pathname));
+const PRIVATE_PATHS = ['/api.php', '/login.php', '/logout.php', '/setup.php', '/register.php',
+                       '/index.php', '/welcome.php'];
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  if (
-    url.pathname.endsWith('/api.php') ||
-    url.pathname.endsWith('/login.php') ||
-    url.pathname.endsWith('/setup.php') ||
-    url.pathname.endsWith('/register.php') ||
-    url.pathname.endsWith('/logout.php')
-  ) return;
+  // Consultas (incluidas las de api.php?resource=...) nunca se cachean.
+  if (url.search) return;
+  if (PRIVATE_PATHS.some((p) => url.pathname.endsWith(p))) return;
 
   if (req.mode === 'navigate') {
     event.respondWith(fetch(req, { cache: 'no-store' }).catch(() => caches.match('./offline.html')));
     return;
   }
 
-  if (ASSETS.some((asset) => url.pathname.endsWith(asset.replace('./', '/')))) {
-    event.respondWith(
-      fetch(req)
-        .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(req, copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match(req).then((hit) => hit || Response.error()))
-    );
-  }
+  if (!STATIC_PATHS.has(url.pathname)) return;
+
+  event.respondWith(
+    fetch(req)
+      .then((response) => {
+        if (response && response.ok && !String(response.headers.get('Cache-Control') || '').includes('no-store')) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(url.pathname, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(url.pathname).then((hit) => hit || Response.error()))
+  );
 });

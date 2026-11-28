@@ -15,19 +15,31 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     if (channel) channel.postMessage({ type: 'drafts' });
   }
 
+  //Logout real: se detecta el envío del formulario, no el desmontaje visual.
+  //Así se limpia aunque Configuración ya no esté visible y se avisa a otras pestañas.
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!form || form.tagName !== 'FORM' || !/logout\.php/i.test(form.action || '')) return;
+    const uid = userId;
+    if (channel) channel.postMessage({ type: 'sessionEnded' });
+    if (uid) { try { idbClearUserDrafts(uid); } catch (_) {} }
+  }, true);
+
   if (channel) {
     channel.addEventListener('message', e => {
       const msg = e.data || {};
       if (msg.type === 'drafts') { loadDrafts().catch(() => {}); return; }
       if (msg.type === 'serverStatus') { connectionState = msg.status; render(); return; }
-      if (msg.type === 'data') { checkConnection().catch(() => {}); }
+      if (msg.type === 'data' || msg.type === 'userChanged') { checkConnection().catch(() => {}); return; }
+      if (msg.type === 'sessionEnded') { handleSessionEnd(false, false); return; }
     });
   }
 
   /* ── IndexedDB: borradores locales (solo datos operativos, sin datos personales) ── */
   const DB_NAME = 'locker_drafts';
   const STORE_NAME = 'drafts';
-  const DB_VERSION = 1;
+  const PREFS_STORE = 'prefs';
+  const DB_VERSION = 2;
   let idb = null;
 
   function idbOpen() {
@@ -35,26 +47,33 @@ const csrf = csrfMeta ? csrfMeta.content : '';
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
         const db = req.result;
+        let store;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-          store.createIndex('user', 'user', { unique: false });
-          store.createIndex('status', 'status', { unique: false });
-          store.createIndex('createdAt', 'createdAt', { unique: false });
+          store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        } else {
+          store = req.transaction.objectStore(STORE_NAME);
         }
+        // La clave del indice es el ID numerico inmutable del usuario (nunca su nombre).
+        if (!store.indexNames.contains('user')) store.createIndex('user', 'user', { unique: false });
+        if (!store.indexNames.contains('status')) store.createIndex('status', 'status', { unique: false });
+        if (!store.indexNames.contains('createdAt')) store.createIndex('createdAt', 'createdAt', { unique: false });
+        if (!db.objectStoreNames.contains(PREFS_STORE)) db.createObjectStore(PREFS_STORE, { keyPath: 'userId' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error('IndexedDB bloqueada por otra pestaña.'));
     });
   }
 
-  async function idbGetDrafts(user) {
+  async function idbGetDrafts(uid) {
+    if (!uid) return [];
     if (!idb) idb = await idbOpen();
     return new Promise((resolve, reject) => {
       const tx = idb.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const index = store.index('user');
-      const req = index.getAll(IDBKeyRange.only(user));
-      req.onsuccess = () => resolve(req.result.filter(d => d.user === user).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      const req = tx.objectStore(STORE_NAME).index('user').getAll(IDBKeyRange.only(uid));
+      req.onsuccess = () => resolve((req.result || [])
+        .filter(d => d.user === uid)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       req.onerror = () => reject(req.error);
     });
   }
@@ -63,32 +82,84 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     if (!idb) idb = await idbOpen();
     return new Promise((resolve, reject) => {
       const tx = idb.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.add(draft);
+      const req = tx.objectStore(STORE_NAME).add(draft);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
   }
 
-  async function idbRemoveDraft(id) {
+  // Solo se puede borrar un borrador si pertenece al usuario verificado.
+  async function idbRemoveDraft(id, uid) {
+    if (!uid) return;
     if (!idb) idb = await idbOpen();
     return new Promise((resolve, reject) => {
       const tx = idb.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(id);
-      req.onsuccess = () => resolve();
+      const get = store.get(id);
+      get.onsuccess = () => {
+        const rec = get.result;
+        if (rec && rec.user === uid) store.delete(id);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function idbSetDraftStatus(id, uid, status) {
+    if (!uid) return;
+    if (!idb) idb = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx = idb.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const get = store.get(id);
+      get.onsuccess = () => {
+        const rec = get.result;
+        if (rec && rec.user === uid) store.put({ ...rec, status, syncedAt: new Date().toISOString() });
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  //Nunca store.clear(): solo se eliminan registros del usuario indicado.
+  async function idbDeleteByUser(uid, keepCurrent) {
+    if (!uid || !idb) return;
+    return new Promise((resolve, reject) => {
+      const tx = idb.transaction(STORE_NAME, 'readwrite');
+      const req = tx.objectStore(STORE_NAME).openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) return;
+        const same = cursor.value.user === uid;
+        if (same !== keepCurrent) cursor.delete();
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  const idbClearUserDrafts = uid => idbDeleteByUser(uid, true);
+  const idbPurgeOtherUsers = uid => idbDeleteByUser(uid, false);
+
+  async function idbGetPref(uid) {
+    if (!uid) return false;
+    if (!idb) idb = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const req = idb.transaction(PREFS_STORE, 'readonly').objectStore(PREFS_STORE).get(uid);
+      req.onsuccess = () => resolve(Boolean(req.result && req.result.offlineEnabled));
       req.onerror = () => reject(req.error);
     });
   }
 
-  async function idbClearAll() {
+  async function idbSetPref(uid, enabled) {
+    if (!uid) return;
     if (!idb) idb = await idbOpen();
     return new Promise((resolve, reject) => {
-      const tx = idb.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      const tx = idb.transaction(PREFS_STORE, 'readwrite');
+      tx.objectStore(PREFS_STORE).put({ userId: uid, offlineEnabled: !!enabled, updatedAt: new Date().toISOString() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   }
 
@@ -116,40 +187,74 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     } finally {
       clearTimeout(timeout);
     }
-    if (res.status === 401) { window.location.href = 'login.php'; return { ok: false, error: 'auth' }; }
+    if (res.status === 401) { await handleSessionEnd(true); return { ok: false, error: 'auth' }; }
     let d;
     try { d = await res.json(); } catch (_) { return { ok: false, error: 'invalid' }; }
     return { ok: res.ok && d.ok, status: res.status, data: d };
   }
 
+  // Cierre de sesión / expiración: borrar SOLO los borradores del usuario actual.
+  // No depende de que Configuración siga montada (pestañas, expiración, cambio de cuenta).
+  async function handleSessionEnd(redirect = false, broadcast = true) {
+    const uid = userId;
+    userId = null;
+    currentUser = null;
+    offlineEnabled = false;
+    connectionState = 'no-server';
+    drafts = [];
+    syncConflicts = [];
+    syncResultsData = [];
+    if (broadcast && channel) channel.postMessage({ type: 'sessionEnded' });
+    if (uid) { try { await idbClearUserDrafts(uid); } catch (_) {} }
+    render();
+    if (redirect) window.location.href = 'login.php';
+  }
+
   async function checkConnection() {
-    // Paso 1: ¿Está disponible PHP?
+    // Conectividad ligera: ping (PHP) + health (SELECT 1). Nunca descarga bootstrap.
     const ping = await fetchJson('ping', { headers: { 'X-CSRF-Token': csrf } });
     if (ping.error === 'network' || !ping.ok) {
       connectionState = 'no-server';
       return;
     }
-    // Paso 2: ¿Está disponible MySQL?
-    const boot = await fetchJson('bootstrap', { headers: { 'X-CSRF-Token': csrf } });
-    if (boot.error === 'network') {
-      connectionState = 'no-server';
-      return;
-    }
-    if (!boot.ok && boot.status === 503) {
+    const health = await fetchJson('health', { headers: { 'X-CSRF-Token': csrf } });
+    const h = health.data || {};
+    if (h.php === true && h.database === false) {
       connectionState = 'no-mysql';
       return;
     }
-    if (!boot.ok) {
-      connectionState = 'no-server';
+    if (health.ok && h.php === true && h.database === true) {
+      connectionState = 'connected';
       return;
     }
-    connectionState = 'connected';
-    serverLockers = boot.data.lockers || [];
-    serverTime = boot.data.serverTime || '';
+    connectionState = 'no-server';
+  }
+
+  let bootstrapInFlight = null;
+  // Bootstrap completo solo cuando se necesitan lockers (crear borrador o sincronizar).
+  async function ensureBootstrap(force = false) {
+    if (!force && serverLockers.length) return true;
+    if (connectionState !== 'connected') await checkConnection();
+    if (connectionState !== 'connected') return false;
+    if (bootstrapInFlight) return bootstrapInFlight;
+    bootstrapInFlight = (async () => {
+      const boot = await fetchJson('bootstrap', { headers: { 'X-CSRF-Token': csrf } });
+      if (!boot.ok) return false;
+      serverLockers = boot.data.lockers || [];
+      serverTime = boot.data.serverTime || '';
+      const u = boot.data.user || {};
+      if (u.id !== undefined && userId) serverUser = u;
+      return true;
+    })();
+    try { return await bootstrapInFlight; } finally { bootstrapInFlight = null; }
   }
 
   /* ── Borradores ── */
-  let currentUser = null; // {id, name, role} - identificación immutable del usuario autenticado
+  let currentUser = null; // datos de sesión (solo lectura, nunca clave de almacenamiento)
+  let userId = null;      // ID numérico inmutable, verificado por el servidor
+  let serverUser = null;  // identidad devuelta por bootstrap/profile
+  // Nunca se permite 'Disponible': equivale a una liberación definitiva.
+  const ALLOWED_OFFLINE_STATUSES = ['Sin llave', 'Dañado', 'Bloqueado', 'Ocupado', 'Revisión'];
   let offlineEnabled = false;
   let drafts = [];
   let syncStatus = 'idle'; // idle, syncing, conflict, done
@@ -213,42 +318,54 @@ const csrf = csrfMeta ? csrfMeta.content : '';
   }
 
   async function loadDrafts() {
-    if (!currentUser) return [];
-    drafts = await idbGetDrafts(currentUser);
+    if (!userId) { drafts = []; render(); return []; }
+    drafts = await idbGetDrafts(userId);
     render();
     return drafts;
   }
 
   function createDraftObj(type, lockerId, proposedStatus, notes) {
-    // Usar el ID immutable del usuario (currentUser.id) para evitar conflictos
-    // si dos personas tienen nombres iguales. Si currentUser es un string, usarlo directamente.
-    const userId = (currentUser && currentUser.id) !== undefined ? currentUser.id : (currentUser || '');
+    if (!userId) return null;
+    const safeType = (type === 'status_proposal') ? type : 'observation';
+    const status = safeType === 'status_proposal' ? String(proposedStatus || '').trim() : '';
+    if (safeType === 'status_proposal' && !ALLOWED_OFFLINE_STATUSES.includes(status)) return null;
+    const lid = String(lockerId || '').trim();
+    if (lid === '') return null;
+    const baseline = serverLockers.find(l => l.id === lid);
     return {
-      user: userId,
-      type,
-      lockerId: String(lockerId).trim(),
-      proposedStatus: type === 'status_proposal' ? String(proposedStatus).trim() : '',
-      notes: String(notes).trim(),
+      user: userId,                 // ID inmutable del usuario, nunca nombre visible
+      type: safeType,
+      lockerId: lid,
+      proposedStatus: status,
+      notes: String(notes || '').trim(),
       createdAt: new Date().toISOString(),
-      status: 'pending' // NO SINCRONIZADOS
+      // Snapshot para detectar cambios ajenos antes de sobrescribir.
+      baselineStatus: baseline ? baseline.status : null,
+      baselineServerTime: serverTime || null,
+      status: 'pending'             // NO SINCRONIZADO
     };
   }
 
   async function addDraft(type, lockerId, proposedStatus, notes) {
     if (!offlineEnabled) { notify('Las operaciones offline están desactivadas.', true); return; }
+    if (!userId) { notify('No se pudo identificar la sesión. No se guardó el borrador.', true); return; }
+    // Solo aquí se descarga el snapshot necesario para el baseline del borrador.
+    if (connectionState === 'connected' && !serverLockers.length) await ensureBootstrap();
     const draft = createDraftObj(type, lockerId, proposedStatus, notes);
+    if (!draft) { notify('Borrador no válido. No se permiten liberaciones ni asignaciones offline.', true); return; }
     await idbAddDraft(draft);
     await loadDrafts();
     return draft;
   }
 
   async function removeDraft(id) {
-    await idbRemoveDraft(id);
+    await idbRemoveDraft(id, userId);
     await loadDrafts();
   }
 
-  async function clearAllDrafts() {
-    await idbClearAll();
+  async function clearUserDrafts() {
+    if (!userId) return;
+    await idbClearUserDrafts(userId);
     drafts = [];
     render();
   }
@@ -385,11 +502,22 @@ const csrf = csrfMeta ? csrfMeta.content : '';
   }
 
   async function performSync() {
+    // Snapshot fresco: nunca sincronizar contra un estado en memoria desactualizado.
+    await checkConnection();
     if (connectionState !== 'connected') {
-      notify('No hay conexión con el servidor. No se puede sincronizar.', true);
+      notify('No hay conexión confirmada con el servidor. No se puede sincronizar.', true);
       return;
     }
-    if (drafts.length === 0) return;
+    if (!await ensureBootstrap(true)) {
+      notify('No se pudo obtener el estado actual de los lockers. Borradores conservados.', true);
+      return;
+    }
+    if (!userId) {
+      notify('Sesión no identificada. No se puede sincronizar.', true);
+      return;
+    }
+    const pending = drafts.filter(d => d.status === 'pending');
+    if (pending.length === 0) return;
 
     syncStatus = 'syncing';
     syncConflicts = [];
@@ -397,31 +525,49 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     render();
 
     const results = [];
-    for (const draft of drafts) {
-      if (draft.status !== 'pending') continue;
+    const seen = new Set();
 
-      // Buscar el locker actual en el servidor para detectar conflictos
+    for (const draft of pending) {
+      // Duplicados: mismo locker/estado no se aplica dos veces.
+      const key = `${draft.type}|${draft.lockerId}|${draft.proposedStatus}`;
+      if (seen.has(key)) {
+        const msg = `Duplicado omitido en ${draft.lockerId}. Revisa antes de aplicar.`;
+        syncConflicts.push({ draft, message: msg });
+        results.push({ id: draft.id, ok: false, conflict: true, message: msg });
+        continue;
+      }
+      seen.add(key);
+
       const current = serverLockers.find(l => l.id === draft.lockerId);
       let conflict = false;
       let conflictMsg = '';
 
-      if (draft.type === 'status_proposal' && current) {
-        if (current.status !== 'Disponible' && current.status !== 'Sin llave' && current.status !== 'Dañado' && current.status !== 'Bloqueado' && current.status !== 'Ocupado' && current.status !== 'Revisión') {
-          conflict = true;
-          conflictMsg = `El locker ${draft.lockerId} tiene estado "${current.status}" en el servidor.`;
-        } else if (current.status === draft.proposedStatus) {
-          conflict = true;
-          conflictMsg = `El locker ${draft.lockerId} ya tiene el estado "${draft.proposedStatus}" en el servidor.`;
-        }
+      if (!current) {
+        conflict = true;
+        conflictMsg = `El locker ${draft.lockerId} ya no existe en el servidor.`;
+      } else if (current.status === 'Asignado') {
+        conflict = true;
+        conflictMsg = `El locker ${draft.lockerId} está asignado. Las liberaciones no se aplican offline.`;
+      } else if (draft.type === 'status_proposal' && !ALLOWED_OFFLINE_STATUSES.includes(draft.proposedStatus)) {
+        conflict = true;
+        conflictMsg = `Estado no permitido offline en ${draft.lockerId}.`;
+      } else if (!draft.baselineStatus || current.status !== draft.baselineStatus) {
+        conflict = true;
+        conflictMsg = `El locker ${draft.lockerId} cambió de "${draft.baselineStatus || 'desconocido'}" a "${current.status}" desde el borrador. No se sobrescribió.`;
+      } else if (draft.baselineServerTime && serverTime && new Date(serverTime) < new Date(draft.baselineServerTime)) {
+        conflict = true;
+        conflictMsg = `La versión del servidor es anterior al borrador de ${draft.lockerId}. No se sobrescribió.`;
+      } else if (draft.type === 'status_proposal' && current.status === draft.proposedStatus) {
+        conflict = true;
+        conflictMsg = `El locker ${draft.lockerId} ya tiene el estado "${draft.proposedStatus}".`;
       }
 
       if (conflict) {
         syncConflicts.push({ draft, message: conflictMsg });
         results.push({ id: draft.id, ok: false, conflict: true, message: conflictMsg });
-        continue;
+        continue; // conservar el borrador para revisión
       }
 
-      // Aplicar cambio según tipo
       if (draft.type === 'status_proposal') {
         try {
           const res = await fetchJson('status', {
@@ -430,36 +576,38 @@ const csrf = csrfMeta ? csrfMeta.content : '';
               'Content-Type': 'application/json',
               'X-CSRF-Token': csrf
             },
+            // El servidor toma la identidad de la sesión; no se envía 'by'.
             body: JSON.stringify({
               locker: draft.lockerId,
               status: draft.proposedStatus,
-              notes: `Borrador offline: ${draft.notes || 'Actualización de estado físico sin cambios de asignación.'}`,
-              by: currentUser
+              notes: `Borrador offline: ${draft.notes || 'Actualización de estado físico sin cambios de asignación.'}`
             })
           });
           if (res.ok) {
-            await idbRemoveDraft(draft.id);
+            await idbRemoveDraft(draft.id, userId);
             results.push({ id: draft.id, ok: true, message: `Locker ${draft.lockerId} actualizado a ${draft.proposedStatus}.` });
           } else {
-            results.push({ id: draft.id, ok: false, message: res.data?.message || 'Error al actualizar.' });
+            results.push({ id: draft.id, ok: false, message: res.data?.message || 'Error al actualizar. Borrador conservado.' });
           }
         } catch (e) {
-          results.push({ id: draft.id, ok: false, message: 'Error de red al sincronizar.' });
+          results.push({ id: draft.id, ok: false, message: 'Error de red al sincronizar. Borrador conservado.' });
         }
       } else {
-        // Observación: solo se guarda localmente, no hay endpoint de servidor
-        results.push({ id: draft.id, ok: true, message: 'Observación guardada localmente.' });
+        // Observación: no hay endpoint; se conserva marcada como guardada localmente.
+        await idbSetDraftStatus(draft.id, userId, 'synced');
+        results.push({ id: draft.id, ok: true, message: `Observación de ${draft.lockerId} conservada localmente.` });
       }
     }
 
-    await loadDrafts(); // recargar después de eliminar sincronizados
+    await loadDrafts();
     broadcastDrafts();
     syncResultsData = results;
-    syncStatus = syncConflicts.length ? 'conflict' : 'done';
+    const failed = results.some(r => !r.ok);
+    syncStatus = failed ? 'conflict' : 'done';
     render();
 
-    const msg = results.filter(r => r.ok).length + ' de ' + results.length + ' cambios procesados.';
-    notify(msg, syncConflicts.length > 0);
+    const okCount = results.filter(r => r.ok).length;
+    notify(`${okCount} de ${results.length} cambios procesados. Los borradores con conflicto se conservan.`, failed);
   }
 
   /* ── Montaje / desmontaje ── */
@@ -476,10 +624,32 @@ const csrf = csrfMeta ? csrfMeta.content : '';
 
   async function mount(el, user) {
     container = el;
-    currentUser = user;
+    currentUser = user || null;
     offlineEnabled = false;
 
     await idbOpen();
+    // Identidad confirmada por el servidor (profile no consulta MySQL).
+    const me = await fetchJson('profile', { headers: { 'X-CSRF-Token': csrf } });
+    const serverIdentity = (me.ok && me.data && me.data.user) ? me.data.user : null;
+    const fallback = user && (user.id ?? user.userId);
+    const resolvedId = serverIdentity && serverIdentity.id !== undefined
+      ? Number(serverIdentity.id)
+      : (fallback !== undefined && fallback !== null ? Number(fallback) : null);
+
+    if (resolvedId && Number.isFinite(resolvedId)) {
+      if (userId && userId !== resolvedId) {
+        await idbClearUserDrafts(userId).catch(() => {});
+        if (channel) channel.postMessage({ type: 'userChanged' });
+      }
+      userId = resolvedId;
+      if (serverIdentity) currentUser = { id: resolvedId, name: serverIdentity.name, username: serverIdentity.username, role: serverIdentity.role };
+      await idbPurgeOtherUsers(userId).catch(() => {});
+      offlineEnabled = await idbGetPref(userId).catch(() => false);
+    } else {
+      userId = null;
+      notify('No se pudo verificar la identidad de la sesión. Los borradores están desactivados.', true);
+    }
+
     await loadDrafts();
     await checkConnection();
     requestPersistentStorage().catch(() => {});
@@ -516,15 +686,14 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     });
 
     // Toggle modo offline
-    toggle.addEventListener('change', () => {
+    toggle.addEventListener('change', async () => {
       offlineEnabled = toggle.checked;
-      // Si se desactiva offline, limpiar borradores pendientes localmente
-      if (!offlineEnabled) {
-        clearAllDrafts().then(() => {
-          notify('Borradores locales eliminados al desactivar modo offline.');
-        });
-      }
+      if (userId) await idbSetPref(userId, offlineEnabled).catch(() => {});
+      // Desactivar NO borra borradores: nunca se pierden sin confirmación.
       render();
+      notify(offlineEnabled
+        ? 'Modo offline activado para esta cuenta.'
+        : 'Modo offline desactivado. Los borradores pendientes se conservan y pueden sincronizarse.');
     });
 
     // Crear borrador
@@ -578,8 +747,11 @@ const csrf = csrfMeta ? csrfMeta.content : '';
     if (container) container.removeEventListener('click', handleDraftsClick);
     container = null;
     currentUser = null;
-    // Limpiar borradores locales al desmontar (logout, cambio de usuario)
-    clearAllDrafts().catch(() => {});
+    // Desmontar Configuración NO es un logout: conservar borradores del usuario.
+    // La limpieza ocurre al cerrar sesión, expirar o cambiar de cuenta.
+    serverLockers = [];
+    serverTime = '';
+    syncConflicts = [];
     syncResultsData = [];
     persistentStorage = 'checking';
   }
@@ -682,7 +854,6 @@ const csrf = csrfMeta ? csrfMeta.content : '';
                 <label for="draftStatus">Estado físico propuesto</label>
                 <select id="draftStatus" name="proposedStatus" required>
                   <option value="">Selecciona un estado</option>
-                  <option value="Disponible">Disponible</option>
                   <option value="Sin llave">Sin llave</option>
                   <option value="Dañado">Dañado</option>
                   <option value="Bloqueado">Bloqueado</option>
@@ -751,7 +922,7 @@ const csrf = csrfMeta ? csrfMeta.content : '';
             ${ICON('lock')} Los borradores se almacenan solo en este navegador (IndexedDB). No se envían al servidor hasta que tú los sincronizas manualmente.
           </div>
           <div class="settings-note info">
-            ${ICON('user')} Los borradores están vinculados a tu sesión de usuario. Al cerrar sesión, los borradores locales se borran para que otro usuario no pueda consultarlos.
+            ${ICON('user')} Los borradores están vinculados al ID de tu cuenta, no a tu nombre. Al cerrar sesión, expirar o cambiar de cuenta se eliminan solo los borradores de esa cuenta; nunca se muestran ni se borran los de otros usuarios.
           </div>
           <div class="settings-note info">
             ${ICON('info')} No se guardan contraseñas, tokens de sesión ni credenciales. Los borradores solo contienen: código de locker, tipo de cambio, notas operativas y fecha. No se incluyen nombres de colaboradores ni datos personales.

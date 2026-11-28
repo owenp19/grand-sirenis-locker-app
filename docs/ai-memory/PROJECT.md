@@ -173,3 +173,60 @@ Todas las 9 fases finalizadas exitosamente. Arquitectura completa integrada en `
 - `sw.js`: caché `grand-sirenis-locker-shell-v11` (v10 se purga automáticamente en `activate`);
   precache actualizado con los iconos oficiales y el favicon. API y rutas de auth siguen excluidas.
 - `index.php` ya apuntaba `apple-touch-icon` a `icons/icon-192.png` (ahora oficial); sin cambios en HTML.
+
+## Modo offline y borradores por usuario (Fase 13, 2026-11-27)
+
+- `public/api.php`: `profile` y `bootstrap` devuelven ahora `user.id` numérico de la sesión; la identidad
+  del cliente nunca se usa como clave de almacenamiento. `ping` sigue sin tocar MySQL.
+- `public/assets/js/settings.js`: IndexedDB `locker_drafts` sube a v2. Los borradores se indexan por
+  `user.id` (no por nombre); se crea el store `prefs` para persistir el interruptor offline por cuenta.
+  Nunca se guardan contraseñas, tokens ni respuestas privadas.
+- El interruptor offline es real y persistente: activa/desactiva creación de borradores, sobrevive al
+  remontaje y NO elimina borradores al desactivarse (sin pérdida silenciosa).
+- Limpieza: solo se borran borradores del usuario verificado al cerrar sesión (401), cambiar de cuenta,
+  expirar la sesión o enviar el formulario de logout; se difunde por `BroadcastChannel` a otras pestañas.
+  Desmontar Configuración ya no borra nada.
+- Sincronización: exige `ping` + `bootstrap` (nunca `navigator.onLine`), toma snapshot fresco, guarda
+  `baselineStatus`/`baselineServerTime`, detecta duplicados y conflictos, conserva borradores fallidos,
+  advierte si la versión del servidor es anterior, y bloquea `Disponible`/asignaciones offline.
+- `public/sw.js`: caché `grand-sirenis-locker-shell-v12` (purga v11). Whitelist exacta de rutas estáticas,
+  sin query strings, sin `api.php`/auth/dashboard, respeta `Cache-Control: no-store`.
+- Pruebas aisladas con dos usuarios, logout, cambio de cuenta, desconexión/reconexión, borradores
+  pendientes y sincronización conflictiva: **22 PASS / 0 FAIL**. Sin despliegue.
+
+## Rendimiento y permisos (Fase 14, 2026-11-27)
+
+- `ping` y `health` se responden ANTES de `require_login()`: miden PHP y PHP+MySQL sin sesión ni datos
+  privados. `app.js` y `settings.js` dejan de descargar `bootstrap` para comprobar conectividad.
+- Clasificación corregida: `health {ok:false, php:true, database:false}` => **MySQL caído** (`no-mysql`);
+  fallo de `ping`/fetch => **PHP caído** (`no-server`). Ya no se confunde MySQL con PHP.
+- `bootstrap` pasa a petición bajo demanda (solo al crear borradores / sincronizar) y acepta
+  `movementsLimit` + `movementsOffset` (máx. 100). `load()` tiene guarda de petición en vuelo.
+- `dashboard`: de 5 consultas (4 `COUNT` + última operación) a 2 (`GROUP BY status` + última operación);
+  expone `statusCounts`, página de bitácora y mantiene su forma previa.
+- Bitácora: `LIMIT ? OFFSET ?` preparado, sin concatenación SQL; botón "Cargar 20 más".
+- `EXPLAIN`: `lockers` usa `idx_status` (ref/index), `movements` usa `PRIMARY` (index) para `ORDER BY id DESC`.
+  Índices existentes suficientes; **no se crearon índices nuevos**.
+- Sondeos detenidos con `document.hidden`; al volver a visible se revalidan y solo se recarga datos si
+  han pasado >60 s. Los eventos `data` de otras pestañas se ignoran cuando la pestaña está oculta.
+- Acceso: "Salida de personal" disponible para todo usuario autenticado; se retiraron los tres bloqueos
+  `!$isAdmin` del módulo. "Mi perfil" en la sidebar para todos: nombre de usuario editable, cambio de
+  contraseña real (antes la rama era inalcanzable) y sesiones revocadas.
+- Recursos: sin librerías ni frameworks nuevos; CSS, fuentes, sprite y SW intactos; `settings.js` y
+  `profile.js` se cargan solo al entrar en su pantalla; `preload` del logo con `fetchpriority="high"`.
+
+### Mediciones antes / después
+| Métrica | Antes | Después |
+|---|---|---|
+| `GET ping` sin sesión | 401, 63 B, ~10 ms | 200, 63 B, ~21 ms |
+| `GET health` sin sesión | 401, 63 B, ~13 ms | 200, 38 B, ~341 ms (conecta MySQL) |
+| Indicadores dashboard (SQL) | 5 consultas, 5.90 ms | 2 consultas, 2.85 ms (-52%) |
+| Página movimientos (20 filas) | sin paginación | 1.29 ms, `LIMIT ? OFFSET ?` |
+| Solicitudes de connectividad | ping + bootstrap (156 lockers + 20 movs) | ping + health (63 B + 38 B) |
+| `app.js` / `profile.js` | 73,386 B / 10,120 B | 75,823 B / 11,312 B |
+| CSS, fuentes, iconos | sin cambios | sin cambios |
+
+- Datos de prueba: 156 lockers reales (`Disponible 6, Asignado 115, Sin llave 23, Bloqueado 2, Ocupado 4`);
+  bitácora vacía en local, paginación verificada con page=3 (offset 40) y escenario ficticio de 150 lockers.
+- Pruebas: 22/22 comprobaciones de Fase 14 y 22/22 de Fase 13; `php -l` y `node --check` sin errores.
+- **No se desplegó.**

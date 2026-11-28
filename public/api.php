@@ -1,6 +1,25 @@
 <?php
 declare(strict_types=1);
 require_once dirname(__DIR__) . '/private/bootstrap.php';
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$resource = (string) ($_GET['resource'] ?? 'bootstrap');
+
+//Comprobación de disponibilidad: no requiere sesión ni datos privados.
+//ping = PHP; health = PHP + MySQL (SELECT 1).
+if ($method === 'GET' && $resource === 'ping') {
+    respond(['ok'=>true, 'php'=>true, 'serverTime'=>date(DATE_ATOM)]);
+}
+if ($method === 'GET' && $resource === 'health') {
+    try {
+        $pdo = db();
+        $ok = $pdo->query('SELECT 1')->fetchColumn() !== false;
+        respond(['ok'=>$ok, 'php'=>true, 'database'=>$ok]);
+    } catch (Throwable $e) {
+        error_log('Health check error: ' . $e->getMessage());
+        respond(['ok'=>false, 'php'=>true, 'database'=>false]);
+    }
+}
+
 $user = require_login(true);
 $isAdmin = is_admin();
 header('Cache-Control: no-store, private');
@@ -18,14 +37,19 @@ function rows_lockers(PDO $db): array {
       FROM lockers ORDER BY block_no, locker_no");
     return $q->fetchAll();
 }
-function rows_movements(PDO $db, ?int $limit = 20): array {
-    // Consulta por defecto limita a 20 para dashboard (performance).
-    // Para exportaciones completas, usar rows_movements_all().
+function rows_movements(PDO $db, ?int $limit = 20, int $offset = 0): array {
+    // Paginación con parámetros preparados: nunca concatenar VALUES del cliente en SQL.
+    // Las exportaciones completas siguen usando rows_movements_all().
     $max = $limit === null ? 50000 : min(max(1, $limit), 50000);
-    $q = $db->query("SELECT id, action_name AS type, locker_id AS locker,
+    $offset = max(0, $offset);
+    $sql = "SELECT id, action_name AS type, locker_id AS locker,
        COALESCE(person_name,'') AS person, actor_name AS `by`, detail AS description,
        DATE_FORMAT(created_at,'%Y-%m-%dT%H:%i:%s') AS at
-       FROM movements ORDER BY id DESC LIMIT " . $max);
+       FROM movements ORDER BY id DESC LIMIT ?";
+    $params = [$max];
+    if ($offset > 0) { $sql .= ' OFFSET ?'; $params[] = $offset; }
+    $q = $db->prepare($sql);
+    $q->execute($params);
     return $q->fetchAll();
 }
 
@@ -320,31 +344,9 @@ function csv_output(string $name, array $headers, array $rows): never {
     }
     fclose($out);exit;
 }
-$method=$_SERVER['REQUEST_METHOD'] ?? 'GET';
-$resource=(string) ($_GET['resource'] ?? 'bootstrap');
-
-// Endpoint ligero de disponibilidad: solo PHP + sesión, sin MySQL.
-// Permite distinguir entre servidor PHP caído y MySQL caído.
-if ($method==='GET' && $resource==='ping') {
-    respond(['ok'=>true, 'serverTime'=>date(DATE_ATOM)]);
-}
-
-// Health check ultra-ligero: solo PHP + SELECT 1, sin lockers, movimientos ni datos de usuarios.
-if ($method==='GET' && $resource==='health') {
-    try {
-        $pdo = db();
-        $q = $pdo->query('SELECT 1');
-        $result = $q->fetch();
-        respond(['ok'=>true, 'php'=>true, 'database'=>($result !== false)]);
-    } catch (Throwable $e) {
-        error_log('Health check error: ' . $e->getMessage());
-        respond(['ok'=>false, 'php'=>true, 'database'=>false]);
-    }
-}
-
 // Perfil del usuario autenticado (lectura de sesión, sin MySQL).
 if ($method==='GET' && $resource==='profile') {
-    respond(['ok'=>true, 'user'=>['name'=>$user['name'], 'username'=>$user['username'], 'role'=>$isAdmin?'administrador':'operador', 'isAdmin'=>$isAdmin]]);
+    respond(['ok'=>true, 'user'=>['id'=>(int)($user['id'] ?? 0), 'name'=>$user['name'], 'username'=>$user['username'], 'role'=>$isAdmin?'administrador':'operador', 'isAdmin'=>$isAdmin]]);
 }
 
 try {
@@ -352,35 +354,35 @@ try {
     // Parsear cuerpo JSON una sola vez (el frontend envía POST con application/json).
     $body = json_decode((string) file_get_contents('php://input'), true);
     if (!is_array($body)) $body = [];
-    // Rutas del módulo Salida de personal: lectura y proceso, solo administradores.
-    // Los parámetros viajan en query string (GET) o en el cuerpo JSON (POST).
+    // Salida de personal: disponible para todo usuario autenticado creado por el administrador.
     $offAction = (string) ($_GET['action'] ?? $body['action'] ?? '');
     if ($resource === 'offboarding' && $offAction === 'search') {
-        if (!$isAdmin) fail('No tiene permiso para buscar colaboradores.', 403);
         $q = (string) ($_GET['q'] ?? $body['q'] ?? '');
         if ($q === '') respond(['ok'=>false, 'message'=>'Parámetro de búsqueda vacío.'], 400);
         $results = search_former_collaborators($db, $q);
         respond(['ok'=>true, 'results'=>$results, 'query'=>$q]);
     }
     if ($resource === 'offboarding' && $offAction === 'getLockers') {
-        if (!$isAdmin) fail('No tiene permiso para consultar lockers.', 403);
         $person = (string) ($_GET['person'] ?? $body['person'] ?? '');
         if ($person === '') respond(['ok'=>false, 'message'=>'Falta el parámetro person.'], 400);
         $lockers = get_lockers_by_person($db, $person);
         respond(['ok'=>true, 'lockers'=>$lockers]);
     }
     if ($method==='GET' && $resource==='bootstrap') {
-        respond(['ok'=>true,'lockers'=>rows_lockers($db),'movements'=>rows_movements($db),
-            'user'=>['name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin],
+        // Movimientos paginados: la bitácora carga páginas bajo demanda.
+        $movLimit = min(max(1, (int)($_GET['movementsLimit'] ?? 20)), 100);
+        $movOffset = max(0, (int)($_GET['movementsOffset'] ?? 0));
+        respond(['ok'=>true,'lockers'=>rows_lockers($db),'movements'=>rows_movements($db, $movLimit, $movOffset),
+            'user'=>['id'=>(int)($user['id'] ?? 0),'name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin],
             'csrf'=>csrf_token(), 'serverTime'=>date(DATE_ATOM)]);
     }
-    // Endpoint dashboard ligero: solo indicadores clave, sin descargar todos los lockers.
+    // Dashboard: una sola pasada agrupada para indicadores + última operación.
     if ($method==='GET' && $resource==='dashboard') {
-        $db=db();
-        $total = (int) $db->query('SELECT COUNT(*) FROM lockers')->fetchColumn();
-        $available = (int) $db->query("SELECT COUNT(*) FROM lockers WHERE status='Disponible'")->fetchColumn();
-        $assigned = (int) $db->query("SELECT COUNT(*) FROM lockers WHERE status='Asignado'")->fetchColumn();
-        $warning = (int) $db->query("SELECT COUNT(*) FROM lockers WHERE status IN ('Dañado','Bloqueado','Revisión')")->fetchColumn();
+        $counts = $db->query('SELECT status, COUNT(*) AS c FROM lockers GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
+        $total = array_sum($counts);
+        $available = (int) ($counts['Disponible'] ?? 0);
+        $assigned = (int) ($counts['Asignado'] ?? 0);
+        $warning = (int) ($counts['Dañado'] ?? 0) + (int) ($counts['Bloqueado'] ?? 0) + (int) ($counts['Revisión'] ?? 0);
         $lastMove = $db->query("SELECT id, action_name, person_name, created_at FROM movements ORDER BY id DESC LIMIT 1")->fetch();
         $lastMovement = null;
         if ($lastMove) {
@@ -391,7 +393,13 @@ try {
                 'at' => $lastMove['created_at']
             ];
         }
-        respond(['ok'=>true,'totalLockers'=>$total,'available'=>$available,'assigned'=>$assigned,'warning'=>$warning,'lastMovement'=>$lastMovement,'serverTime'=>date(DATE_ATOM)]);
+        // Página opcional de la bitácora, sin descargar lockers ni el bootstrap completo.
+        $page = min(max(1, (int)($_GET['page'] ?? 1)), 1000);
+        $limit = min(max(1, (int)($_GET['limit'] ?? 20)), 100);
+        respond(['ok'=>true,'totalLockers'=>$total,'available'=>$available,'assigned'=>$assigned,
+            'warning'=>$warning,'statusCounts'=>$counts,'lastMovement'=>$lastMovement,
+            'movements'=>rows_movements($db, $limit, ($page - 1) * $limit),
+            'historyPage'=>$page,'serverTime'=>date(DATE_ATOM)]);
     }
     // Endpoint acta de asignación: genera/descarga el acta de un locker asignado identificado exactamente.
     if ($method==='POST' && $resource==='assignment-certificate') {
@@ -468,11 +476,18 @@ try {
     if (!csrf_valid((string)($_SERVER['HTTP_X_CSRF_TOKEN']??''))) fail('Sesión del formulario vencida. Recarga la página.',403);
     if ((int)($_SERVER['CONTENT_LENGTH']??0)>20000) fail('Formulario demasiado grande.',413);
     if (!is_array($body)) fail('Solicitud JSON inválida.',400);
-    if ($method==='POST' && $resource==='profile') {
+    if ($method==='POST' && $resource==='profile' && ($body['action'] ?? '')!=='change-password') {
         $name=field($body,'name',120,true);
-        $db->prepare('UPDATE users SET display_name=? WHERE id=?')->execute([$name,$user['id']]);
+        $username=field($body,'username',60,true);
+        if (!preg_match('/^[A-Za-z0-9._-]{3,60}$/', $username)) fail('El usuario solo admite letras, números, punto, guion y guion bajo (3-60).', 400);
+        $exists=$db->prepare('SELECT id FROM users WHERE username=? AND id<>? LIMIT 1');
+        $exists->execute([$username,(int)$user['id']]);
+        if ($exists->fetch()) fail('Ese nombre de usuario ya está en uso.', 409);
+        $db->prepare('UPDATE users SET display_name=?, username=? WHERE id=?')->execute([$name,$username,(int)$user['id']]);
         $_SESSION['user']['name']=$name;
-        respond(['ok'=>true,'message'=>'Nombre actualizado correctamente.','user'=>['name'=>$name,'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
+        $_SESSION['user']['username']=$username;
+        $_SESSION['username']=$username;
+        respond(['ok'=>true,'message'=>'Perfil actualizado correctamente.','user'=>['id'=>(int)$user['id'],'name'=>$name,'username'=>$username,'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
     }
     if ($method==='POST' && $resource==='profile' && isset($body['action']) && $body['action']==='change-password') {
         // Verify current password
@@ -480,6 +495,7 @@ try {
         $newPassword = field($body, 'new_password', 512, true);
         $confirmPassword = field($body, 'confirm_password', 512, true);
         if ($newPassword !== $confirmPassword) fail('Las contraseñas nuevas no coinciden.', 400);
+        if (mb_strlen($newPassword, 'UTF-8') < 8) fail('La contraseña nueva debe tener al menos 8 caracteres.', 400);
         // Verify current password against hash in DB
         $q = $db->prepare('SELECT password_hash FROM users WHERE id = ? LIMIT 1');
         $q->execute([(int) $user['id']]);
@@ -491,7 +507,7 @@ try {
         $db->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$newHash, (int) $user['id']]);
         // Revoke all previous sessions (force re-login)
         revoke_user_sessions((int) $user['id']);
-        respond(['ok'=>true,'message'=>'Contraseña actualizada correctamente. Las sesiones anteriores han sido revocadas.','user'=>['name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
+        respond(['ok'=>true,'message'=>'Contraseña actualizada correctamente. Las sesiones anteriores han sido revocadas.','user'=>['id'=>(int)$user['id'],'name'=>$user['name'],'username'=>$user['username'],'role'=>$isAdmin?'administrador':'operador','isAdmin'=>$isAdmin]]);
     }
     if ($method==='POST' && $resource==='users' && isset($body['action']) && $body['action']==='deactivate') {
         // Only admins can deactivate users
@@ -525,7 +541,6 @@ try {
         }
     }
     if ($method==='POST' && $resource==='offboarding' && isset($body['action']) && $body['action']==='process') {
-        if (!$isAdmin) fail('No tiene permiso para realizar esta operación.', 403);
         // Normalizar lockerIds: array o string separada por comas; enteros positivos, únicos, no vacíos.
         $rawIds = $body['lockerIds'] ?? [];
         if (is_string($rawIds)) $rawIds = preg_split('/\s*,\s*/', $rawIds, -1, PREG_SPLIT_NO_EMPTY);

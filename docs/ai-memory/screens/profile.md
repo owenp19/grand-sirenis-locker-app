@@ -38,6 +38,9 @@ Usados: `user`, `check`, `shield-check`, `lock`, `info`. Todos existen en `lucid
 - Eliminado el estilo inline del botón de guardado.
 - El botón conserva su icono durante el guardado mediante `.btn-label`.
 - Sin re-render completo tras guardar: se actualizan valores y se sincroniza la topbar.
+- Fase 14: disponible para operadores (botón "Mi perfil" en la sidebar). Edición de nombre y usuario
+  (3-60 caracteres, único) y cambio de contraseña con verificación de la actual y revocación de sesiones.
+  El listener de contraseña se enlaza dentro de `mount()`; antes quedaba inactivo.
 
 ## 8. Pendientes
 - (Ninguno)
