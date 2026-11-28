@@ -38,7 +38,10 @@ $isAdmin = is_admin();
     </div>
 </div>
 <div class="layout" id="app">
-<aside class="sidebar" aria-label="Navegación principal">
+<aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+  <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Cerrar menú de navegación">
+    <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide-sprite.svg#x"></use></svg>
+  </button>
   <a class="brand" href="index.php" aria-label="Grand Sirenis Locker App, inicio">
     <img class="brand-logo" src="assets/image/grand-sirenis-locker-app-logo-white-480.png" alt="" width="480" height="160" decoding="async">
     <span class="brand-tagline">Gestión hotelera</span>
@@ -63,6 +66,9 @@ $isAdmin = is_admin();
 </aside>
 <div class="workspace">
 <header class="topbar">
+  <button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menú de navegación" aria-controls="sidebar" aria-expanded="false">
+    <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide-sprite.svg#menu"></use></svg>
+  </button>
   <a class="topbar-brand" href="index.php" aria-label="Grand Sirenis Locker App, inicio">
     <img src="assets/image/grand-sirenis-locker-app-logo-black-720.png" alt="" width="720" height="240" decoding="async">
   </a>
@@ -96,5 +102,6 @@ $isAdmin = is_admin();
 <footer class="app-footer"><span>Grand Sirenis Locker App · Sistema local de lockers</span><span>PHP + MySQL · PWA</span></footer>
 </div>
 </div>
+<div class="menu-overlay" id="menuOverlay" hidden></div>
 <div id="modalRoot"></div><div id="toast" class="toast" role="status" aria-live="polite"></div><div id="connectionBar" role="status" class="connection-bar" hidden>Sin conexión con el servidor local. Las consultas y cambios requieren PHP y MySQL activos.</div>
 </body></html>

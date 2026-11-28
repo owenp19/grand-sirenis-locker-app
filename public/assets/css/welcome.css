@@ -587,10 +587,84 @@
   }
 }
 
+/* -------------------------------------------------------------
+   Preloader / Boot (Capa de carga superior)
+   Se elimina automáticamente por motion.js al terminar la carga.
+   ------------------------------------------------------------- */
+@keyframes boot-fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes boot-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+@keyframes boot-labelFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes boot-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes boot-shimmer {
+  0% { background: rgba(165, 131, 46, 0.12); }
+  50% { background: rgba(165, 131, 46, 0.24); }
+  100% { background: rgba(165, 131, 46, 0.12); }
+}
+
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-canvas-warm);
+  transition: opacity var(--transition-slow) var(--ease-standard);
+}
+.boot[aria-hidden="true"] {
+  opacity: 0;
+  visibility: hidden;
+}
+.boot-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  text-align: center;
+}
+.boot-logo {
+  width: min(260px, 100%);
+  height: auto;
+  animation: boot-fadeIn 600ms var(--ease-standard) both;
+}
+.boot-progress {
+  width: 0%;
+  height: 3px;
+  background: var(--brand-gold);
+  border-radius: 3px;
+  animation: boot-progress 1.2s var(--ease-standard) ease-out both;
+}
+.boot-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-body-warm);
+  white-space: nowrap;
+  animation: boot-labelFadeIn 400ms var(--ease-standard) 300ms both;
+}
+.boot.exit {
+  animation: boot-exit 400ms var(--ease-standard) forwards;
+}
+
+/* Shimmer sutil en modo reducción de movimiento desactivado */
 @media (prefers-reduced-motion: reduce) {
-  .welcome-copy,
-  .welcome-visual,
-  .welcome-float {
+  .boot-logo,
+  .boot-progress,
+  .boot-label {
     animation: none !important;
+  }
+  .boot-progress {
+    display: none;
   }
 }

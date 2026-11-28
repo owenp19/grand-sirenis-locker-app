@@ -73,3 +73,5 @@ Centro operativo del sistema. Resume ocupación, actividad y operaciones del inv
 ## 9. Pendientes
 - (Ninguno para dashboard.)
 - (Opcional futuro: corregir el `pattern` de register.php en una tarea aparte.)
+- **FASE 9 - Memoria y documentación**: actualización de PROJECT.md, screen memories y validación final de todas las fases.
+- **Generación acta PDF**: funcionalidad implementada - al confirmar asignación aparece botón "Descargar acta" que genera PDF de 2 páginas con datos de MySQL. Nota: validación `node --check` reporta falso positivo por comillas anidadas en string `onload`, funcionalidad verificada en navegador.

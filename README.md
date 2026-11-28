@@ -1,6 +1,6 @@
 # Grand Sirenis Locker App · Gestión local de lockers para hotel
 
-Aplicación local, ligera y segura para gestionar los lockers (casilleros) de los colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron). **Interfaz renovada: nuevas pantallas de offboarding, configuración, historial y gestión de lockers con diseño mejorado.**
+Aplicación local, ligera y segura para gestionar los lockers (casilleros) de los colaboradores de un hotel: dashboard, inventario (156 lockers), asignación, liberación, traslado, colaboradores, movimientos, incidencias y exportación CSV/JSON. Con autenticación por roles (administrador / operador) y PWA instalable. Sin frameworks pesados (no Laravel, React, Angular, Vue ni Electron).
 
 <p align="center">
   <img src="public/assets/image/grand-sirenis-locker-app-logo-white.png" alt="Grand Sirenis Locker App" width="200">
@@ -20,7 +20,7 @@ Aplicación local, ligera y segura para gestionar los lockers (casilleros) de lo
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
   />
   <img
-    src="public/assets/image/grand-sirenis-locker-app-logo-white.png"
+    src="public/assets/image/grand-sirenis-locker-app-dashboard.png"
     alt="Pantallazo 3 - Icono"
     width="44%"
     style="max-width: 240px; vertical-align: top; margin: 0 8px;"
@@ -29,29 +29,19 @@ Aplicación local, ligera y segura para gestionar los lockers (casilleros) de lo
 
 ---
 
-## 🆕 Nuevas pantallas (UI renovada)
+## Funcionalidades
 
-### Pantalla Salida de personal (#offboarding)
-- **Hero navy** con acento dorado y stepper visual de 3 pasos (Buscar → Revisar → Confirmar).
-- **Búsqueda** de colaboradores con normalización de acentos y mayúsculas.
-- **Previsualización** de lockers asignados con avatar y contador.
-- **Confirmación** con resumen de lockers a liberar y aviso destacado.
-- **Informe final** con datos del colaborador, lockers procesados y motivo.
-
-### Pantalla Configuración (#settings)
-- **Hero** con chips informativos (datos locales, privado por sesión, sincronización manual).
-- **Iconos de sección** con tonos del tema (azul, ámbar, dorado, teal, navy).
-- **Mejor jerarquía** y responsive para móvil.
-
-### Bitácora de movimientos (#history)
-- **Hero navy** con chips: total de registros, coincidencias y orden cronológico.
-- **Búsqueda** en tarjeta propia.
-- **Timeline** con icono por tipo de movimiento, pill del locker y responsable.
-
-### Gestión de lockers (#lockers)
-- **Hero navy** con contadores: total, disponibles y no disponibles.
-- **Pestañas** Inventario/Colaboradores tipo pill.
-- **Tabla** en tarjeta con hover por fila.
+- **Dashboard:** indicadores de ocupación, distribución por bloque, actividad reciente y accesos rápidos.
+- **Gestión de lockers:** inventario de 156 casilleros, filtros por estado y bloque, asignación, liberación, traslado y edición de asignaciones.
+- **Colaboradores:** consulta de lockers asignados por persona con búsqueda.
+- **Movimientos:** bitácora cronológica de operaciones con búsqueda y filtros.
+- **Incidencias:** detección y reconciliación de inconsistencias de datos.
+- **Salida de personal:** liberación de todos los lockers de un colaborador (solo administrador).
+- **Configuración:** preferencias locales de la sesión y sincronización manual.
+- **Exportación:** CSV del inventario y los movimientos, y respaldo JSON completo para administradores.
+- **Acta de asignación:** generación e impresión del acta de locker desde el navegador.
+- **Navegación adaptable:** barra lateral en escritorio y menú desplegable en tablet y móvil.
+- **PWA:** instalación en el equipo y caché de recursos estáticos para uso sin conexión.
 
 ---
 

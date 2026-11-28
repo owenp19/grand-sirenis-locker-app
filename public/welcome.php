@@ -25,11 +25,11 @@ $doorStates = ['used', 'used', 'free', 'used', 'warn', 'free', 'used', 'free'];
     <title>Bienvenido · Grand Sirenis Locker App</title>
 </head>
 <body class="welcome-page">
-<div class="boot" aria-hidden="true">
+<div class="boot" aria-busy="true" aria-label="Cargando Grand Sirenis Locker App">
     <div class="boot-inner">
-        <img class="boot-logo" src="assets/image/grand-sirenis-locker-app-logo-black-720.png" alt="" width="720" height="240" decoding="async">
-        <span class="boot-bar"></span>
-        <span class="boot-label">Preparando la aplicación</span>
+        <img class="boot-logo" src="assets/image/grand-sirenis-locker-app-logo-black-720.png" alt="Grand Sirenis Locker App" width="380" height="128" decoding="async">
+        <span class="boot-progress"></span>
+        <p class="boot-label">Cargando Grand Sirenis Locker App</p>
     </div>
 </div>
 <a class="welcome-skip" href="#welcome-main">Saltar al contenido</a>
