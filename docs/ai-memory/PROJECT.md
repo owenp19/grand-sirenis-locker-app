@@ -139,14 +139,22 @@ Todas las 9 fases finalizadas exitosamente. Arquitectura completa integrada en `
 
 ## Hardening de .htaccess y archivos privados (Fase 9, 2026-11-27)
 
-- `public/.htaccess`: reescrito sin directivas de contexto VirtualHost (`<Directory>`, `<DirectoryMatch>`
-  eliminadas). Sustituido `<IfModule mod_php5.c>` obsoleto por `<IfModule mod_php8.c>`. Eliminado
-  bloqueo basado en User-Agent y directivas `Order Allow,Deny` obsoletas (Apache 2.2). Conservado
-  `Options -Indexes`, `FilesMatch` para extensiones sensibles (.sql, .md, .ini, .env, .bak, .zip,
-  .log, .private, .db, .git, .htaccess), y restricción de métodos HTTP a GET/POST/OPTIONS.
-- `scripts/.htaccess` (nuevo): `Require all denied` para bloquear acceso web a scripts administrativos
-  de PowerShell (CLI only).
+- `.htaccess` raíz: reescrito sin directivas de contexto VirtualHost (`<Directory>`, `<DirectoryMatch>`
+  eliminadas). Eliminado `<IfModule mod_php5.c>` y `php_flag engine off` (en la raíz desactivaría PHP
+  para toda la aplicación; el PHP solo se ejecuta desde `public/`). Eliminado bloqueo basado en
+  User-Agent (`SetEnvIfNoCase`) y `Order Allow,Deny` obsoleto (Apache 2.2). Conservado `Options -Indexes`,
+  `FilesMatch` para extensiones sensibles (.sql, .md, .ini, .env, .bak, .zip, .log, .private, .db,
+  .git, .htaccess) y restricción de métodos HTTP a GET/POST/OPTIONS. Todo `RewriteRule` va dentro de
+  `<IfModule mod_rewrite.c>` para evitar HTTP 500 si el módulo no está activo.
+- `scripts/.htaccess` (nuevo): `Require all denied` para bloquear acceso web a scripts administrativos.
 - `private/.htaccess` y `db/.htaccess`: `Require all denied` (sin cambios, ya protegidos).
 - `storage/.htaccess`, `logs/.htaccess`, `tests/.htaccess`, `docs/.htaccess` (nuevos): `Require all denied`
-  para evitar acceso web a backups, logs, pruebas y documentación interna.
+  para evitar acceso web a backups, logs, pruebas y documentación interna. `storage/` está en
+  `.gitignore`; su `.htaccess` se incluyó con `git add -f`.
+- Scripts PHP administrativos (`scripts/inspect-users.php`, `scripts/reset-admin-user.php`): verifican
+  `PHP_SAPI !== 'cli'` y terminan con 403; ejecutan correctamente por consola.
+- Pruebas HTTP locales (`php -S 127.0.0.1 -t public`, 30 URLs): rutas PHP, CSS/JS/imágenes/fuentes,
+  archivos privados, scripts CLI por HTTP, guards y config: **45 PASS / 0 FAIL / 0 HTTP 500**.
+  302/401/403 en rutas funcionales son respuestas esperadas (auth, registro desactivado, logout con
+  POST+CSRF), no errores.
 - No se modificó autenticación ni rutas funcionales. No se desplegó todavía.

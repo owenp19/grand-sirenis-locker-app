@@ -1,23 +1,24 @@
 Options -Indexes
 
-# Proteger archivos sensibles por extensión
+# Proteger archivos sensibles por extension (incluye .env, SQL, ZIP, logs y backups)
 <FilesMatch "\.(sql|md|ini|env|bak|zip|log|private|db|git|htaccess)$">
     Require all denied
 </FilesMatch>
 
-# Bloquear acceso directo a PHP en directorios no diseñados para ello
-<IfModule mod_php8.c>
-    php_flag engine off
-</IfModule>
+# El codigo PHP solo se ejecuta desde public/ (document root).
+# Los directorios privados (private, db, scripts, storage, logs, tests, docs)
+# se bloquean con su propio .htaccess "Require all denied", no con php_flag,
+# que en la raiz desactivaria PHP para toda la aplicacion.
 
-# Denegar métodos no autorizados (solo GET, POST, OPTIONS)
+# Denegar metodos no autorizados (solo GET, POST, OPTIONS).
+# Todo dentro de IfModule para no provocar HTTP 500 si mod_rewrite no esta activo.
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{REQUEST_METHOD} !^(GET|POST|OPTIONS)$ [NC]
     RewriteRule .* - [F,L]
-</IfModule>
 
-# Impedir la enumeración de directorios y ocultar la lista de archivos
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^ - [L]
+    # No enumerar ni reescribir rutas inexistentes
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ - [L]
+</IfModule>
