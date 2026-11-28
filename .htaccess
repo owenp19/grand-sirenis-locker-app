@@ -5,16 +5,14 @@ Options -Indexes
     Require all denied
 </FilesMatch>
 
-# Bloquear acceso directo a php en directorios no diseñados para ello
-<IfModule mod_php5.c>
+# Bloquear acceso directo a PHP en directorios no diseñados para ello
+<IfModule mod_php8.c>
     php_flag engine off
 </IfModule>
 
-# Denegar métodos no autorizados
+# Denegar métodos no autorizados (solo GET, POST, OPTIONS)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
-    # Redirigir cualquier petición que no sea GET o POST a 403
     RewriteCond %{REQUEST_METHOD} !^(GET|POST|OPTIONS)$ [NC]
     RewriteRule .* - [F,L]
 </IfModule>
@@ -23,21 +21,3 @@ Options -Indexes
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ - [L]
-
-# Seguridad adicional: bloquear user-agents conocidos maliciosos
-SetEnvIfNoCase User-Agent "^scraper|harvest|extract|email|loader|curl|python|harvestbot|bitsobot" bad_bot
-<Limit GET POST PUT DELETE>
-    Order Allow,Deny
-    Allow from all
-    Deny from env=bad_bot
-</Limit>
-
-# Capa base: solo public/ debe ser servido
-<Directory "/var/www/grand-sirenis-locker-app/public">
-    Require all granted
-</Directory>
-
-# Bloquear acceso a todo lo que no sea public/
-<DirectoryMatch "^/.*/(private|db|scripts|storage|tests|docs)$">
-    Require all denied
-</DirectoryMatch>

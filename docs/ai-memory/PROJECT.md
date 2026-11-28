@@ -136,3 +136,17 @@ Todas las 9 fases finalizadas exitosamente. Arquitectura completa integrada en `
 - Migración `db/migrations/007_locker_document_phone.sql`: columnas `document` y `phone` en `lockers`.
 - Pruebas de integración en base aislada (`hotel_lockers_test`): backup, cifrado, restore, contraseña
   incorrecta, limpieza de temporales, no público — todas OK.
+
+## Hardening de .htaccess y archivos privados (Fase 9, 2026-11-27)
+
+- `public/.htaccess`: reescrito sin directivas de contexto VirtualHost (`<Directory>`, `<DirectoryMatch>`
+  eliminadas). Sustituido `<IfModule mod_php5.c>` obsoleto por `<IfModule mod_php8.c>`. Eliminado
+  bloqueo basado en User-Agent y directivas `Order Allow,Deny` obsoletas (Apache 2.2). Conservado
+  `Options -Indexes`, `FilesMatch` para extensiones sensibles (.sql, .md, .ini, .env, .bak, .zip,
+  .log, .private, .db, .git, .htaccess), y restricción de métodos HTTP a GET/POST/OPTIONS.
+- `scripts/.htaccess` (nuevo): `Require all denied` para bloquear acceso web a scripts administrativos
+  de PowerShell (CLI only).
+- `private/.htaccess` y `db/.htaccess`: `Require all denied` (sin cambios, ya protegidos).
+- `storage/.htaccess`, `logs/.htaccess`, `tests/.htaccess`, `docs/.htaccess` (nuevos): `Require all denied`
+  para evitar acceso web a backups, logs, pruebas y documentación interna.
+- No se modificó autenticación ni rutas funcionales. No se desplegó todavía.
