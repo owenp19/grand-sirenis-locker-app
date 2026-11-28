@@ -57,17 +57,20 @@ async function request(resource,body,params){const opts={credentials:'same-origi
   if(!res.ok || !d.ok)throw Error(d.message||'No se pudo realizar la operación.');
   connection(false);return d;
 }
-let loadInFlight=null;
-async function load(refresh=true){
-  //Una sola petición bootstrap aunque lleguen varios eventos (broadcast, visibility, refresh).
-  if(loadInFlight)return loadInFlight;
+let loadInFlight=null, loadSeq=0;
+async function load(refresh=true,force=false){
+  // Una sola petición bootstrap aunque lleguen varios eventos. Tras una escritura,
+  // force=true descarta cualquier respuesta en vuelo que leyera el estado anterior.
+  if(loadInFlight&&!force)return loadInFlight;
+  const seq=++loadSeq;
   loadInFlight=(async()=>{
     const d=await request('bootstrap');
+    if(seq!==loadSeq)return; // respuesta obsoleta: otra carga más reciente ya ganó
     S.lockers=d.lockers||[];S.movements=d.movements||[];S.user=d.user||S.user;
     S.serverTime=d.serverTime||'';S.loadedAt=Date.now();S.loaded=true;
     S.historyPage=1;S.historyHasMore=(d.movements||[]).length>=20;
   })();
-  try{await loadInFlight}finally{loadInFlight=null}
+  try{await loadInFlight}finally{if(seq===loadSeq)loadInFlight=null}
   if(refresh){render();playViewEnter()}
 }
 async function loadHistoryPage(page){
@@ -553,7 +556,7 @@ function close(){
   S.lastFocus=null;
 }
 function openAssign(id=''){const opts=available();if(!opts.length){notify('No hay lockers disponibles confirmados.',true);return}const lockers=[['auto','Asignación automática (primero disponible)'],...opts.map(l=>[l.id,`Locker ${l.id} · Bloque ${l.block}`])];
-  modal('Asignar un locker',`<div class="form-note">El sistema solo permite asignar casilleros confirmados como disponibles. Puedes seleccionar uno o usar asignación automática.</div><div class="form-grid">${item('Locker disponible','locker','select',select(lockers,id||'auto'),'required')}${today()}${item('Nombre y apellidos','name','text','','required maxlength="160"',true)}${item('Departamento','department','text','','required maxlength="120"')}${item('Jefe inmediato','supervisor','text','','maxlength="160"')}${item('Documento de identidad','document','text','','required maxlength="30"',true)}${item('Teléfono','phone','tel','','maxlength="30"')}${item('Condición física','condition','select',select(['Bueno','Regular','Malo'],'Bueno'),'required')}${by()}${notes()}</div>`, 'assign','Confirmar asignación');
+  modal('Asignar un locker',`<div class="form-note">El sistema solo permite asignar casilleros confirmados como disponibles. Puedes seleccionar uno o usar asignación automática.</div><div class="form-grid">${item('Locker disponible','locker','select',select(lockers,id||'auto'),'required')}${today()}${item('Nombre y apellidos','name','text','','required maxlength="160"',true)}${item('Departamento','department','text','','required maxlength="120"')}${item('Jefe inmediato','supervisor','text','','maxlength="160"')}${item('Documento de identidad','document','text','','required maxlength="30"',true)}${item('Teléfono','phone','tel','','maxlength="30" required')}${item('Condición física','condition','select',select(['Bueno','Regular','Malo'],'Bueno'),'required')}${by()}${notes()}</div>`, 'assign','Confirmar asignación');
 }
 function openRelease(id=''){const a=allocated();if(!a.length){notify('No hay casilleros asignados para liberar.',true);return}const id0=id||a[0].id;const statuses=[['Disponible','Disponible · llave entregada'],['Sin llave','Sin llave'],['Dañado','Dañado'],['Bloqueado','Mantener bloqueado']];
   modal('Liberar locker',`<div class="form-note warn">Al confirmar se retira la asignación del colaborador. El casillero queda disponible solo si está en buen estado y tiene llave. No se controla ninguna cerradura física.</div><div class="form-grid">${item('Locker asignado','locker','select',select(a.map(l=>[l.id,`${l.id} · ${l.name}`]),id0),'required')}${today()}${item('Motivo de salida','reason','select',select(['Salida del hotel','Renuncia','Fin de contrato','Cambio de locker','Otro'],'Salida del hotel'),'required')}${item('Estado al devolver','outcome','select',select(statuses,'Disponible'),'required')}${by()}${notes()}</div>`, 'release','Liberar y registrar',true);
@@ -579,8 +582,23 @@ async function submit(form){
   const submitButton=el('modalRoot').querySelector('button[type=submit]');
   if(submitButton){submitButton.disabled=true;submitButton.textContent='Guardando…'}
   form.setAttribute('aria-busy','true');
-  try{const result=await request(resource,payload);await load(false);broadcast({type:'data'});if(result.ok){showCertificate(result.certData,result.message)}else{close();notify(result.message)}}
-  catch(e){notify(e.message,true);if(submitButton){submitButton.disabled=false;submitButton.textContent='Volver a intentar'}}
+  try{
+    const result=await request(resource,payload);
+    // La tabla debe repintarse: load(false) actualiza datos pero no renderiza.
+    // force=true evita que una carga en vuelo anterior deje el locker con estado viejo.
+    await load(false,true);render();
+    broadcast({type:'data'});
+    if(!result.ok){close();notify(result.message);return}
+    if(result.certData)showCertificate(result.certData,result.message);
+    else{close();notify(result.message)}
+  }
+  catch(e){
+    // Si hubo conflicto (409), el estado local puede estar desactualizado: refrescar
+    // para que el usuario vea el estado real y no repita la misma operación.
+    notify(e.message,true);
+    try{await load(false,true);render()}catch(_){}
+    if(submitButton){submitButton.disabled=false;submitButton.textContent='Volver a intentar'}
+  }
   finally{form.removeAttribute('aria-busy')}
 }
 function showCertificate(certData,message){

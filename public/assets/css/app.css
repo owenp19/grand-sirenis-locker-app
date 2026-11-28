@@ -1785,10 +1785,19 @@ h1, h2, h3, p { margin-top: 0; }
   box-shadow: var(--shadow-lg);
 }
 
+/* El <form> es el hijo flex real: sin esto el body no se puede desplazar. */
+.dashboard-page .modal > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex: 0 0 auto;
   gap: 12px;
   padding: 19px 22px 15px;
   border-bottom: 1px solid var(--d-line);
@@ -1817,7 +1826,10 @@ h1, h2, h3, p { margin-top: 0; }
 .modal-close:hover { background: #ece2cf; color: var(--d-ink); }
 
 .modal-body {
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 20px 22px;
 }
 
@@ -1825,6 +1837,7 @@ h1, h2, h3, p { margin-top: 0; }
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
+  flex: 0 0 auto;
   gap: 9px;
   padding: 15px 22px;
   border-top: 1px solid var(--d-line);
